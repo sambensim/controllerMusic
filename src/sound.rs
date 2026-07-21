@@ -54,19 +54,21 @@ fn set_defaults(silent : bool) -> (cpal::Host, Device, cpal::SupportedStreamConf
     return (host, input_device, input_config, output_device, output_config)
 }
 
-type SynthFn = fn(time: f32, sample_rate: f32) -> f32;
+type SynthFn = fn(time: f32, absolute_time : f32, sample_rate: f32) -> f32;
 
-fn sound_main(sample_rate: f32, audio: SynthFn) -> (impl FnMut() -> f32 + Send + 'static, impl FnMut(&mut std::collections::VecDeque<f32>)) {
+fn sound_main(sample_rate: f32, audio: impl Fn(f32, f32, f32) -> f32 + Send + 'static) -> (impl FnMut() -> f32 + Send + 'static, impl FnMut(&mut std::collections::VecDeque<f32>)) {
     use ringbuf::{HeapRb, traits::{Split, Producer, Consumer}};
     const DISPLAY_SAMPLES: usize = 1024; // how many samples to show at once
     let mut time = 0.0f32;
+    let mut absolute_time = 0.0f32;  // never wraps
 
     let rb = HeapRb::<f32>::new(4096); // big enough not to overflow between frames
     let (mut producer, mut consumer) = rb.split();
 
     let audio_closure = move || {
         time = (time + 1.0) % sample_rate;
-        let value = audio(time, sample_rate);
+        absolute_time += 1.0;
+        let value = audio(time, absolute_time, sample_rate);
         // let value = (time * PITCH * 2.0 * std::f32::consts::PI / sample_rate).sin();
         let _ = producer.try_push(value); // drop samples if visual side is behind
         value
@@ -126,18 +128,41 @@ pub fn do_sound() -> impl FnMut(&mut VecDeque<f32>) {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
     let sample_rate = output_config.sample_rate() as f32;
 
-    fn sine(time: f32, sample_rate: f32) -> f32 {
+    fn demo(time: f32, absolute_time : f32, sample_rate: f32) -> f32 {
+        fn make_sine(freq: f32, volume: f32) -> impl Fn(f32, f32, f32) -> f32 {
+            move |time, _ : f32, sample_rate| {
+                let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
+                (time * freq * coefficient).sin() * volume
+            }
+        }
+        match (absolute_time / (sample_rate * 1.0)).floor() % 3.0 {
+            0.0 => {
+                return make_sine(220.0, 1.0)(time, absolute_time, sample_rate);
+            }
+            1.0 => {
+                return make_sine(440.0, 0.6)(time, absolute_time, sample_rate);
+            }
+            2.0 => {
+                return make_sine(880.0, 0.8)(time, absolute_time, sample_rate);
+            }
+            _ => {
+                panic!()
+            }
+        }
+    }
+
+    fn sine(time: f32, _ : f32, sample_rate: f32) -> f32 {
         const PITCH: f32 = 440.0;
         let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
         (time * PITCH * coefficient).sin()
     }
 
-    fn square(time: f32, sample_rate: f32) -> f32 {
+    fn square(time: f32, _ : f32, sample_rate: f32) -> f32 {
         const PITCH: f32 = 440.0;
         if (time * PITCH / sample_rate).fract() < 0.5 { 1.0 } else { -1.0 }
     }
 
-    let (next_value, update_visual) = sound_main(sample_rate, sine);
+    let (next_value, update_visual) = sound_main(sample_rate, demo);
 
     std::thread::spawn(move || {
         match output_config.sample_format() {

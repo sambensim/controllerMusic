@@ -33,11 +33,12 @@ fn main() {
     //         }
     //     }
     // }
-    let mut update_visual = do_sound();
-    let mut display_buffer = VecDeque::new();
-
-    loop {
-        update_visual(&mut display_buffer);
-        // draw display_buffer
-    }
+    // nannou::app(model).simple_window(view).run();
+    let update_visual = do_sound();
+    // let mut display_buffer = VecDeque::new();
+    visuals::run(update_visual);
+    // loop {
+    //     update_visual(&mut display_buffer);
+    //     // draw display_buffer
+    // }
 }
