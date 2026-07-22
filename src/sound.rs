@@ -124,9 +124,32 @@ where
     }
 }
 
-pub fn do_sound() -> impl FnMut(&mut VecDeque<f32>) {
+use std::sync::{Arc, Mutex};
+
+use crate::controller::DS4State;
+
+pub fn do_sound(controller_state : Arc<Mutex<DS4State>>) -> impl FnMut(&mut VecDeque<f32>) {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
     let sample_rate = output_config.sample_rate() as f32;
+
+    let cond_sine = {
+        let controller_state = Arc::clone(&controller_state);
+        move |time: f32, _: f32, sample_rate: f32| -> f32 {
+            const PITCH: f32 = 440.0;
+            let state = controller_state.lock().unwrap();
+            if !state.circle {
+                return 0.0;
+            }
+            let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
+            (time * PITCH * coefficient).sin()
+        }
+    };
+
+    fn sine(time: f32, _ : f32, sample_rate: f32) -> f32 {
+        const PITCH: f32 = 440.0;
+        let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
+        (time * PITCH * coefficient).sin()
+    }
 
     fn demo(time: f32, absolute_time : f32, sample_rate: f32) -> f32 {
         fn make_sine(freq: f32, volume: f32) -> impl Fn(f32, f32, f32) -> f32 {
@@ -157,18 +180,12 @@ pub fn do_sound() -> impl FnMut(&mut VecDeque<f32>) {
         }
     }
 
-    fn sine(time: f32, _ : f32, sample_rate: f32) -> f32 {
-        const PITCH: f32 = 440.0;
-        let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
-        (time * PITCH * coefficient).sin()
-    }
-
     fn square(time: f32, _ : f32, sample_rate: f32) -> f32 {
         const PITCH: f32 = 440.0;
         if (time * PITCH / sample_rate).fract() < 0.5 { 1.0 } else { -1.0 }
     }
 
-    let (next_value, update_visual) = sound_main(sample_rate, demo);
+    let (next_value, update_visual) = sound_main(sample_rate, cond_sine);
 
     std::thread::spawn(move || {
         match output_config.sample_format() {
