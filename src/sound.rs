@@ -135,7 +135,7 @@ pub fn do_sound() -> impl FnMut(&mut VecDeque<f32>) {
                 (time * freq * coefficient).sin() * volume
             }
         }
-        match (absolute_time / (sample_rate * 1.0)).floor() % 3.0 {
+        match (absolute_time / (sample_rate * 1.0)).floor() % 5.0 {
             0.0 => {
                 return make_sine(220.0, 1.0)(time, absolute_time, sample_rate);
             }
@@ -144,6 +144,12 @@ pub fn do_sound() -> impl FnMut(&mut VecDeque<f32>) {
             }
             2.0 => {
                 return make_sine(880.0, 0.8)(time, absolute_time, sample_rate);
+            }
+            3.0 => {
+                return make_sine(660.0, 0.8)(time, absolute_time, sample_rate);
+            }
+            4.0 => {
+                return make_sine(440.0, 0.5)(time, absolute_time, sample_rate) + make_sine(660.0, 0.5)(time, absolute_time, sample_rate);
             }
             _ => {
                 panic!()
