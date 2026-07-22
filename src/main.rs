@@ -1,8 +1,7 @@
-use hidapi::HidApi;
-
 mod controller;
 mod visuals;
 mod sound;
+mod music_theory;
 
 fn main() {
     

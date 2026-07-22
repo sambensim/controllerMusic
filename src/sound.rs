@@ -126,7 +126,7 @@ where
 
 use std::sync::{Arc, Mutex};
 
-use crate::controller::DS4State;
+use crate::controller::{self, DS4State};
 
 pub fn do_sound(controller_state : Arc<Mutex<DS4State>>) -> impl FnMut(&mut VecDeque<f32>) {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
@@ -135,13 +135,14 @@ pub fn do_sound(controller_state : Arc<Mutex<DS4State>>) -> impl FnMut(&mut VecD
     let cond_sine = {
         let controller_state = Arc::clone(&controller_state);
         move |time: f32, _: f32, sample_rate: f32| -> f32 {
-            const PITCH: f32 = 440.0;
             let state = controller_state.lock().unwrap();
-            if !state.circle {
+            let oct = controller::get_left_stick_section(&state);
+            if oct == -1 {
                 return 0.0;
             }
+            let freq: f32 = (oct as f32 + 1.0) * 220.0;
             let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
-            (time * PITCH * coefficient).sin()
+            (time * freq * coefficient).sin()
         }
     };
 

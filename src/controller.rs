@@ -16,7 +16,7 @@ pub fn get_dualshock() -> Result<HidDevice, String> {
     }
 }
 
-pub fn print_data(controller : HidDevice) {
+pub fn _print_data(controller : HidDevice) {
     loop {
         let mut buf = [0u8; 78]; // 0x11 report is 78 bytes
         match controller.read(&mut buf) {
@@ -125,6 +125,7 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
     }
 }
 
+use std::f32::consts::PI;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -144,3 +145,20 @@ pub fn start_controller_thread(device: hidapi::HidDevice) -> Arc<Mutex<DS4State>
 
     state // return the Arc to the caller
 }
+
+pub fn get_left_stick_section(controller_state : &DS4State) -> i8 {
+    get_vec_section(controller_state.left_stick_x, controller_state.left_stick_y)
+}
+
+pub fn get_right_stick_section(controller_state : &DS4State) -> i8 {
+    get_vec_section(controller_state.right_stick_x, controller_state.right_stick_y)
+}
+
+fn get_vec_section(x : f32, y : f32) -> i8 {
+    let magnitude = (x * x + y * y).sqrt();
+    const THRESHOLD : f32 = 0.4;
+    if magnitude < THRESHOLD { return -1 } ;
+    let angle : f32 = y.atan2(x);
+    let normalized_angle : f32 = if angle < 0.0 { angle + 2.0 * PI } else { angle };
+    ((normalized_angle / ((2.0 * PI) / 8.0)).round() % 8.0) as i8
+  }
