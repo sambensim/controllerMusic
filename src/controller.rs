@@ -49,7 +49,7 @@ l-trigger: byte 10: none == 00, full == ff
 r-trigger: byte 11: none == 00, full == ff
 */
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 pub struct DS4State {
     // Sticks: normalized -1.0 to 1.0
     pub left_stick_x: f32,
@@ -126,24 +126,28 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
 }
 
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc}; //use flume? broadcasts? spmc?
 use std::thread;
 
-pub fn start_controller_thread(device: hidapi::HidDevice) -> Arc<Mutex<DS4State>> {
-    let state = Arc::new(Mutex::new(DS4State::default()));
-    let state_clone = Arc::clone(&state);
+pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4State> {
+    // let state = Arc::new(Mutex::new(DS4State::default()));
+    // let state_clone = Arc::clone(&state);
+
+    let (sender, receiver) = mpsc::channel();
 
     thread::spawn(move || {
         let mut buf = [0u8; 78];
         loop {
             if let Ok(_) = device.read(&mut buf) {
                 let parsed = parse_report(&buf);
-                *state_clone.lock().unwrap() = parsed;
+                sender.send(parsed);
+                // *state_clone.lock().unwrap() = parsed;
             }
         }
     });
 
-    state // return the Arc to the caller
+    // state // return the Arc to the caller
+    return receiver
 }
 
 pub fn get_left_stick_section(controller_state : &DS4State) -> i8 {

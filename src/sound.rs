@@ -3,7 +3,7 @@ use cpal::{
     Device, Error, ErrorKind, FromSample, OutputCallbackInfo, Sample, SampleFormat,
     SizedSample, StreamConfig, I24,
 };
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::mpsc::Receiver};
 
 
 fn print_input_options(host : &cpal::Host) {
@@ -56,7 +56,7 @@ fn set_defaults(silent : bool) -> (cpal::Host, Device, cpal::SupportedStreamConf
 
 type SynthFn = fn(time: f32, absolute_time : f32, sample_rate: f32) -> f32;
 
-fn sound_main(sample_rate: f32, audio: impl Fn(f32, f32, f32) -> f32 + Send + 'static) -> (impl FnMut() -> f32 + Send + 'static, impl FnMut(&mut std::collections::VecDeque<f32>)) {
+fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Send + 'static) -> (impl FnMut() -> f32 + Send + 'static, impl FnMut(&mut std::collections::VecDeque<f32>)) {
     use ringbuf::{HeapRb, traits::{Split, Producer, Consumer}};
     const DISPLAY_SAMPLES: usize = 1024; // how many samples to show at once
     let mut time = 0.0f32;
@@ -64,6 +64,15 @@ fn sound_main(sample_rate: f32, audio: impl Fn(f32, f32, f32) -> f32 + Send + 's
 
     let rb = HeapRb::<f32>::new(4096); // big enough not to overflow between frames
     let (mut producer, mut consumer) = rb.split();
+
+    // let next_state = controller_channel.try_recv();
+    // let mut state : &DS4State;
+
+    // if next_state.is_err() {
+    //     state = last_state
+    // } else {
+    //     state = &next_state.unwrap();
+    // }
 
     let audio_closure = move || {
         time = (time + 1.0) % sample_rate;
@@ -128,14 +137,19 @@ use std::sync::{Arc, Mutex};
 
 use crate::controller::{self, DS4State};
 
-pub fn do_sound(controller_state : Arc<Mutex<DS4State>>) -> impl FnMut(&mut VecDeque<f32>) {
+pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecDeque<f32>) {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
     let sample_rate = output_config.sample_rate() as f32;
 
     let cond_sine = {
-        let controller_state = Arc::clone(&controller_state);
-        move |time: f32, _: f32, sample_rate: f32| -> f32 {
-            let state = controller_state.lock().unwrap();
+        let mut last_state : DS4State = controller_channel.recv().unwrap();
+        let mut cb = move |time: f32, _: f32, sample_rate: f32| -> f32 {
+            let new_state = controller_channel.try_recv();
+            let mut state : DS4State = last_state;
+            if !new_state.is_err() {
+                last_state = state;
+                state = new_state.unwrap()
+            }
             let oct = controller::get_left_stick_section(&state);
             if oct == -1 {
                 return 0.0;
@@ -143,48 +157,9 @@ pub fn do_sound(controller_state : Arc<Mutex<DS4State>>) -> impl FnMut(&mut VecD
             let freq: f32 = (oct as f32 + 1.0) * 220.0;
             let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
             (time * freq * coefficient).sin()
-        }
+        };
+        cb
     };
-
-    fn sine(time: f32, _ : f32, sample_rate: f32) -> f32 {
-        const PITCH: f32 = 440.0;
-        let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
-        (time * PITCH * coefficient).sin()
-    }
-
-    fn demo(time: f32, absolute_time : f32, sample_rate: f32) -> f32 {
-        fn make_sine(freq: f32, volume: f32) -> impl Fn(f32, f32, f32) -> f32 {
-            move |time, _ : f32, sample_rate| {
-                let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
-                (time * freq * coefficient).sin() * volume
-            }
-        }
-        match (absolute_time / (sample_rate * 1.0)).floor() % 5.0 {
-            0.0 => {
-                return make_sine(220.0, 1.0)(time, absolute_time, sample_rate);
-            }
-            1.0 => {
-                return make_sine(440.0, 0.6)(time, absolute_time, sample_rate);
-            }
-            2.0 => {
-                return make_sine(880.0, 0.8)(time, absolute_time, sample_rate);
-            }
-            3.0 => {
-                return make_sine(660.0, 0.8)(time, absolute_time, sample_rate);
-            }
-            4.0 => {
-                return make_sine(440.0, 0.5)(time, absolute_time, sample_rate) + make_sine(660.0, 0.5)(time, absolute_time, sample_rate);
-            }
-            _ => {
-                panic!()
-            }
-        }
-    }
-
-    fn square(time: f32, _ : f32, sample_rate: f32) -> f32 {
-        const PITCH: f32 = 440.0;
-        if (time * PITCH / sample_rate).fract() < 0.5 { 1.0 } else { -1.0 }
-    }
 
     let (next_value, update_visual) = sound_main(sample_rate, cond_sine);
 
