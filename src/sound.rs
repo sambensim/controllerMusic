@@ -137,20 +137,27 @@ use std::sync::{Arc, Mutex};
 
 use crate::controller::{self, DS4State};
 
+struct SoundEngine {
+    controller_state : DS4State,
+    controller_channel : Receiver<DS4State>
+}
+
 pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecDeque<f32>) {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
     let sample_rate = output_config.sample_rate() as f32;
 
-    let cond_sine = {
-        let mut last_state : DS4State = controller_channel.recv().unwrap();
-        let mut cb = move |time: f32, _: f32, sample_rate: f32| -> f32 {
-            let new_state = controller_channel.try_recv();
-            let mut state : DS4State = last_state;
+    let mut sound_engine = SoundEngine {
+        controller_state : controller_channel.recv().unwrap(),
+        controller_channel : controller_channel
+    };
+
+    let sound_spawn = {
+        let cb = move |time: f32, _: f32, sample_rate: f32| -> f32 {
+            let new_state = sound_engine.controller_channel.try_recv();
             if !new_state.is_err() {
-                last_state = state;
-                state = new_state.unwrap()
+                sound_engine.controller_state = new_state.unwrap();
             }
-            let oct = controller::get_left_stick_section(&state);
+            let oct = controller::get_left_stick_section(&sound_engine.controller_state );
             if oct == -1 {
                 return 0.0;
             }
@@ -161,7 +168,7 @@ pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecD
         cb
     };
 
-    let (next_value, update_visual) = sound_main(sample_rate, cond_sine);
+    let (next_value, update_visual) = sound_main(sample_rate, sound_spawn);
 
     std::thread::spawn(move || {
         match output_config.sample_format() {
