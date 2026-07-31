@@ -3,6 +3,7 @@ use cpal::{
     Device, Error, ErrorKind, FromSample, OutputCallbackInfo, Sample, SampleFormat,
     SizedSample, StreamConfig, I24,
 };
+use raylib::audio::Sound;
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
 
@@ -65,20 +66,10 @@ fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Se
     let rb = HeapRb::<f32>::new(4096); // big enough not to overflow between frames
     let (mut producer, mut consumer) = rb.split();
 
-    // let next_state = controller_channel.try_recv();
-    // let mut state : &DS4State;
-
-    // if next_state.is_err() {
-    //     state = last_state
-    // } else {
-    //     state = &next_state.unwrap();
-    // }
-
     let audio_closure = move || {
         time = (time + 1.0) % sample_rate;
         absolute_time += 1.0;
         let value = audio(time, absolute_time, sample_rate);
-        // let value = (time * PITCH * 2.0 * std::f32::consts::PI / sample_rate).sin();
         let _ = producer.try_push(value); // drop samples if visual side is behind
         value
     };
@@ -136,11 +127,35 @@ where
 use std::sync::{Arc, Mutex};
 
 use crate::controller::{self, DS4State};
+use crate::music_theory;
 
 struct SoundEngine {
     controller_state : DS4State,
-    controller_channel : Receiver<DS4State>
+    controller_channel : Receiver<DS4State>,
+    chord_engine : music_theory::ChordEngine,
 }
+
+impl SoundEngine {
+    fn get_state(&mut self) -> DS4State {
+        let new_state = self.controller_channel.try_recv();
+        if !new_state.is_err() {
+            self.controller_state = new_state.unwrap();
+        };
+        self.controller_state
+    }
+
+    fn get_chord(&mut self) -> (f32, f32, f32, f32) {
+        let state = self.get_state();
+        let oct = controller::get_left_stick_section(&state);
+        if oct == -1 {
+            return (0.0, 0.0, 0.0, 0.0);
+        };
+        let freq: f32 = (oct as f32 + 1.0) * 220.0;
+        (freq, freq, freq, freq)
+        // let note_names = self.chord_engine.get_chord_notes(oct as i32, 0);
+    }
+}
+
 
 pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecDeque<f32>) {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
@@ -148,20 +163,13 @@ pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecD
 
     let mut sound_engine = SoundEngine {
         controller_state : controller_channel.recv().unwrap(),
-        controller_channel : controller_channel
+        controller_channel : controller_channel,
+        chord_engine : music_theory::ChordEngine::new(0, 3),
     };
 
     let sound_spawn = {
         let cb = move |time: f32, _: f32, sample_rate: f32| -> f32 {
-            let new_state = sound_engine.controller_channel.try_recv();
-            if !new_state.is_err() {
-                sound_engine.controller_state = new_state.unwrap();
-            }
-            let oct = controller::get_left_stick_section(&sound_engine.controller_state );
-            if oct == -1 {
-                return 0.0;
-            }
-            let freq: f32 = (oct as f32 + 1.0) * 220.0;
+            let (freq, _, _, _) = sound_engine.get_chord();
             let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
             (time * freq * coefficient).sin()
         };
