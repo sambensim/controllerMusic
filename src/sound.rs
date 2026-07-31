@@ -133,6 +133,7 @@ struct SoundEngine {
     controller_state : DS4State,
     controller_channel : Receiver<DS4State>,
     chord_engine : music_theory::ChordEngine,
+    phases : Vec<f32>
 }
 
 impl SoundEngine {
@@ -148,7 +149,7 @@ impl SoundEngine {
         let state = self.get_state();
         let oct = controller::get_left_stick_section(&state);
         if oct == -1 {
-            return vec!(0.0, 0.0, 0.0, 0.0);
+            return vec!();
         };
         let notes = self.chord_engine.get_chord_notes(oct as i32, 0);
         notes.iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
@@ -164,17 +165,23 @@ pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecD
         controller_state : controller_channel.recv().unwrap(),
         controller_channel : controller_channel,
         chord_engine : music_theory::ChordEngine::new(0, 4),
+        phases : vec!()
     };
 
     let sound_spawn = {
-        let cb = move |time: f32, _: f32, sample_rate: f32| -> f32 {
+        let cb = move |_: f32, _: f32, sample_rate: f32| -> f32 {
             let freqs = sound_engine.get_chord();
             let mut out : f32 = 0.0;
-            for f in &freqs {
-                let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
-                out += (time * f * coefficient).sin();
+            for (i, f) in freqs.iter().enumerate() {
+                let coefficient = 1.0 / sample_rate;
+                if sound_engine.phases.get(i).is_none() {
+                    sound_engine.phases.push(0.0);
+                }
+                sound_engine.phases[i] += f * coefficient;
+                sound_engine.phases[i] %= 1.0;
+                out += (sound_engine.phases[i] * 2.0 * std::f32::consts::PI).sin();
             };
-            out / freqs.len() as f32
+            out / freqs.len().max(1) as f32
         };
         cb
     };
