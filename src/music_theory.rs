@@ -108,6 +108,14 @@ impl ChordEngine {
         format!("{}{}", note, chord_mode_str)
     }
 
+    pub fn value_to_freq(value: i32) -> f32 {
+        440.0 * 2.0_f32.powf((value - 69) as f32 / 12.0)
+    }
+
+    pub fn note_to_freq(note: &str) -> Result<f32, String> {
+        Ok(Self::value_to_freq(Self::note_to_value(note)?))
+    }
+
     pub fn note_to_value(note: &str) -> Result<i32, String> {
         // Split at the boundary between the note name and the octave number
         let split = note

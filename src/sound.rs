@@ -126,7 +126,7 @@ where
 
 use std::sync::{Arc, Mutex};
 
-use crate::controller::{self, DS4State};
+use crate::{controller::{self, DS4State}, music_theory::ChordEngine};
 use crate::music_theory;
 
 struct SoundEngine {
@@ -144,15 +144,14 @@ impl SoundEngine {
         self.controller_state
     }
 
-    fn get_chord(&mut self) -> (f32, f32, f32, f32) {
+    fn get_chord(&mut self) -> Vec<f32> {
         let state = self.get_state();
         let oct = controller::get_left_stick_section(&state);
         if oct == -1 {
-            return (0.0, 0.0, 0.0, 0.0);
+            return vec!(0.0, 0.0, 0.0, 0.0);
         };
-        let freq: f32 = (oct as f32 + 1.0) * 220.0;
-        (freq, freq, freq, freq)
-        // let note_names = self.chord_engine.get_chord_notes(oct as i32, 0);
+        let notes = self.chord_engine.get_chord_notes(oct as i32, 0);
+        notes.iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
     }
 }
 
@@ -164,14 +163,18 @@ pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecD
     let mut sound_engine = SoundEngine {
         controller_state : controller_channel.recv().unwrap(),
         controller_channel : controller_channel,
-        chord_engine : music_theory::ChordEngine::new(0, 3),
+        chord_engine : music_theory::ChordEngine::new(0, 4),
     };
 
     let sound_spawn = {
         let cb = move |time: f32, _: f32, sample_rate: f32| -> f32 {
-            let (freq, _, _, _) = sound_engine.get_chord();
-            let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
-            (time * freq * coefficient).sin()
+            let freqs = sound_engine.get_chord();
+            let mut out : f32 = 0.0;
+            for f in &freqs {
+                let coefficient = 2.0 * std::f32::consts::PI / sample_rate;
+                out += (time * f * coefficient).sin();
+            };
+            out / freqs.len() as f32
         };
         cb
     };
