@@ -136,11 +136,12 @@ impl SoundEngine {
 
     fn get_chord(&mut self) -> Vec<f32> {
         let state = self.get_state();
-        let oct = controller::get_left_stick_section(&state);
-        if oct == -1 {
+        let loct = controller::get_left_stick_section(&state);
+        if loct == -1 {
             return vec!();
         };
-        let notes = self.chord_engine.get_chord_notes(oct as i32, 0);
+        let roct = controller::get_right_stick_section(&state);
+        let notes = self.chord_engine.get_chord_notes(loct as i32, roct as i32);
         notes.iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
     }
 

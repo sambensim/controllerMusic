@@ -99,6 +99,7 @@ impl ChordEngine {
 
     pub fn get_chord_name(&self, chord_index: i32, chord_mode: i32) -> String {
         let octave_shift = 12 * (chord_index / 7);
+        println!("cindex: {}", chord_index);
         let note = self.note_add(
             self.key,
             Self::key_note_all_note_index((chord_index % 7) as usize) + octave_shift,

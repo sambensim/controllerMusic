@@ -129,11 +129,10 @@ use std::f32::consts::PI;
 use std::sync::{mpsc}; //use flume? broadcasts? spmc?
 use std::thread;
 
-pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4State> {
-    // let state = Arc::new(Mutex::new(DS4State::default()));
-    // let state_clone = Arc::clone(&state);
+pub fn start_controller_thread(device: hidapi::HidDevice) -> (mpsc::Receiver<DS4State>, mpsc::Receiver<DS4State>) {
 
     let (sender, receiver) = mpsc::channel();
+    let (sender2, receiver2) = mpsc::channel();
 
     thread::spawn(move || {
         let mut buf = [0u8; 78];
@@ -141,13 +140,13 @@ pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4S
             if let Ok(_) = device.read(&mut buf) {
                 let parsed = parse_report(&buf);
                 let _ = sender.send(parsed);
-                // *state_clone.lock().unwrap() = parsed;
+                let _ = sender2.send(parsed);
             }
         }
     });
 
     // state // return the Arc to the caller
-    return receiver
+    return (receiver, receiver2)
 }
 
 pub fn get_left_stick_section(controller_state : &DS4State) -> i8 {
