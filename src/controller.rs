@@ -126,7 +126,7 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
 }
 
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex, mpsc}; //use flume? broadcasts? spmc?
+use std::sync::{mpsc}; //use flume? broadcasts? spmc?
 use std::thread;
 
 pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4State> {
@@ -140,7 +140,7 @@ pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4S
         loop {
             if let Ok(_) = device.read(&mut buf) {
                 let parsed = parse_report(&buf);
-                sender.send(parsed);
+                let _ = sender.send(parsed);
                 // *state_clone.lock().unwrap() = parsed;
             }
         }

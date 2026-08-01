@@ -4,7 +4,7 @@ use cpal::{
     SizedSample, StreamConfig, I24,
 };
 use raylib::audio::Sound;
-use std::{collections::VecDeque, sync::mpsc::Receiver};
+use std::{collections::VecDeque, sync::mpsc::{self, Receiver}};
 
 
 fn print_input_options(host : &cpal::Host) {
@@ -57,9 +57,8 @@ fn set_defaults(silent : bool) -> (cpal::Host, Device, cpal::SupportedStreamConf
 
 type SynthFn = fn(time: f32, absolute_time : f32, sample_rate: f32) -> f32;
 
-fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Send + 'static) -> (impl FnMut() -> f32 + Send + 'static, impl FnMut(&mut std::collections::VecDeque<f32>)) {
+fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Send + 'static) -> impl FnMut() -> f32 + Send + 'static {
     use ringbuf::{HeapRb, traits::{Split, Producer, Consumer}};
-    const DISPLAY_SAMPLES: usize = 1024; // how many samples to show at once
     let mut time = 0.0f32;
     let mut absolute_time = 0.0f32;  // never wraps
 
@@ -74,16 +73,7 @@ fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Se
         value
     };
 
-    let visual_closure = move |display_buffer: &mut VecDeque<f32>| {
-        while let Some(sample) = consumer.try_pop() {
-            display_buffer.push_back(sample);
-            if display_buffer.len() > DISPLAY_SAMPLES {
-                display_buffer.pop_front();
-            }
-        }
-    };
-
-    (audio_closure, visual_closure)
+    audio_closure
 }
 
 //below was stolen from the examples
@@ -131,7 +121,8 @@ struct SoundEngine {
     controller_state : DS4State,
     controller_channel : Receiver<DS4State>,
     chord_engine : music_theory::ChordEngine,
-    phases : [f32; SoundEngine::MAX_NOTES]
+    phases : [f32; SoundEngine::MAX_NOTES],
+    freq_send : mpsc::Sender<f32>,
 }
 
 impl SoundEngine {
@@ -157,23 +148,26 @@ impl SoundEngine {
 }
 
 
-pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecDeque<f32>) {
+pub fn do_sound(controller_channel : Receiver<DS4State>) -> Receiver<f32> {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
     let sample_rate = output_config.sample_rate() as f32;
+    
+    let (sender, receiver) = mpsc::channel();
 
     let mut sound_engine = SoundEngine {
         controller_state : controller_channel.recv().unwrap(),
         controller_channel : controller_channel,
         chord_engine : music_theory::ChordEngine::new(0, 4),
-        phases : [0.0; SoundEngine::MAX_NOTES]
+        phases : [0.0; SoundEngine::MAX_NOTES],
+        freq_send : sender
     };
-
-    let sound_spawn = {
-        let cb = move |_: f32, _: f32, sample_rate: f32| -> f32 {
+    
+    let coefficient = 1.0 / sample_rate;
+    let sound_process = {
+        let cb = move |_: f32, _: f32, _: f32| -> f32 {
             let freqs = sound_engine.get_chord();
             let mut out : f32 = 0.0;
             for i in 0..SoundEngine::MAX_NOTES {
-                let coefficient = 1.0 / sample_rate;
                 if freqs.get(i).is_none() {
                     sound_engine.phases[i] = 0.0
                 } else {
@@ -182,12 +176,15 @@ pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecD
                 }
                 out += (sound_engine.phases[i] * 2.0 * std::f32::consts::PI).sin();
             };
-            out / freqs.len().max(1) as f32
+            out /= freqs.len().max(1) as f32;
+            let _ = sound_engine.freq_send.send(out);
+            out
         };
         cb
     };
 
-    let (next_value, update_visual) = sound_main(sample_rate, sound_spawn);
+
+    let next_value = sound_main(sample_rate, sound_process);
 
     std::thread::spawn(move || {
         match output_config.sample_format() {
@@ -208,5 +205,5 @@ pub fn do_sound(controller_channel : Receiver<DS4State>) -> impl FnMut(&mut VecD
             sample_format => panic!("Unsupported sample format '{sample_format}'"),
         }
     });
-    return update_visual
+    return receiver
 }
