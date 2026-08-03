@@ -3,11 +3,12 @@ mod visuals;
 mod sound;
 mod music_theory;
 mod synths;
+mod sound_engine;
 
 use raylib::prelude::*;
-use std::{collections::VecDeque, sync::mpsc::{self, Receiver}};
+use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{controller::DS4State, music_theory::ChordEngine};
+use crate::{controller::DS4State};
 
 
 struct DisplayEngine {
