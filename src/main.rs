@@ -2,6 +2,7 @@ mod controller;
 mod visuals;
 mod sound;
 mod music_theory;
+mod synths;
 
 use raylib::prelude::*;
 use std::{collections::VecDeque, sync::mpsc::{self, Receiver}};

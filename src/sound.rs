@@ -3,8 +3,7 @@ use cpal::{
     Device, Error, ErrorKind, FromSample, OutputCallbackInfo, Sample, SampleFormat,
     SizedSample, StreamConfig, I24,
 };
-use raylib::audio::Sound;
-use std::{collections::VecDeque, sync::mpsc::{self, Receiver}};
+use std::{sync::mpsc::{self, Receiver}};
 
 
 fn print_input_options(host : &cpal::Host) {
@@ -55,15 +54,13 @@ fn set_defaults(silent : bool) -> (cpal::Host, Device, cpal::SupportedStreamConf
     return (host, input_device, input_config, output_device, output_config)
 }
 
-type SynthFn = fn(time: f32, absolute_time : f32, sample_rate: f32) -> f32;
-
 fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Send + 'static) -> impl FnMut() -> f32 + Send + 'static {
-    use ringbuf::{HeapRb, traits::{Split, Producer, Consumer}};
+    use ringbuf::{HeapRb, traits::{Split, Producer}};
     let mut time = 0.0f32;
     let mut absolute_time = 0.0f32;  // never wraps
 
     let rb = HeapRb::<f32>::new(4096); // big enough not to overflow between frames
-    let (mut producer, mut consumer) = rb.split();
+    let (mut producer, _) = rb.split();
 
     let audio_closure = move || {
         time = (time + 1.0) % sample_rate;
@@ -114,19 +111,20 @@ where
     }
 }
 
-use crate::{controller::{self, DS4State}, music_theory::ChordEngine};
+use crate::{controller::{self, DS4State}, music_theory::ChordEngine, sound, synths};
 use crate::music_theory;
 
-struct SoundEngine {
-    controller_state : DS4State,
+pub struct SoundEngine {
+    pub controller_state : DS4State,
     controller_channel : Receiver<DS4State>,
-    chord_engine : music_theory::ChordEngine,
-    phases : [f32; SoundEngine::MAX_NOTES],
+    pub chord_engine : music_theory::ChordEngine,
+    pub phases : [f32; SoundEngine::MAX_NOTES],
     freq_send : mpsc::Sender<f32>,
+    pub time_step : f32,
 }
 
 impl SoundEngine {
-    fn get_state(&mut self) -> DS4State {
+    pub fn get_state(&mut self) -> DS4State {
         let new_state = self.controller_channel.try_recv();
         if !new_state.is_err() {
             self.controller_state = new_state.unwrap();
@@ -134,7 +132,7 @@ impl SoundEngine {
         self.controller_state
     }
 
-    fn get_chord(&mut self) -> Vec<f32> {
+    pub fn get_chord(&mut self) -> Vec<f32> {
         let state = self.get_state();
         let loct = controller::get_left_stick_section(&state);
         if loct == -1 {
@@ -145,7 +143,12 @@ impl SoundEngine {
         notes.iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
     }
 
-    const MAX_NOTES : usize = 4;
+    pub fn send(&mut self, freq : f32) -> f32 {
+        self.freq_send.send(freq);
+        freq
+    }
+
+    pub const MAX_NOTES : usize = 4;
 }
 
 
@@ -160,31 +163,11 @@ pub fn do_sound(controller_channel : Receiver<DS4State>) -> Receiver<f32> {
         controller_channel : controller_channel,
         chord_engine : music_theory::ChordEngine::new(0, 4),
         phases : [0.0; SoundEngine::MAX_NOTES],
-        freq_send : sender
+        freq_send : sender,
+        time_step : 1.0 / sample_rate,
     };
     
-    let coefficient = 1.0 / sample_rate;
-    let sound_process = {
-        let cb = move |_: f32, _: f32, _: f32| -> f32 {
-            let freqs = sound_engine.get_chord();
-            let mut out : f32 = 0.0;
-            for i in 0..SoundEngine::MAX_NOTES {
-                if freqs.get(i).is_none() {
-                    sound_engine.phases[i] = 0.0
-                } else {
-                    sound_engine.phases[i] += freqs[i] * coefficient;
-                    sound_engine.phases[i] %= 1.0;
-                }
-                out += (sound_engine.phases[i] * 2.0 * std::f32::consts::PI).sin();
-            };
-            out /= freqs.len().max(1) as f32;
-            let _ = sound_engine.freq_send.send(out);
-            out
-        };
-        cb
-    };
-
-
+    let sound_process = synths::get_process(sound_engine);
     let next_value = sound_main(sample_rate, sound_process);
 
     std::thread::spawn(move || {
