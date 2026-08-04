@@ -4,7 +4,7 @@ use cpal::{
     SizedSample, StreamConfig, I24,
 };
 use std::{sync::mpsc::{self, Receiver}};
-use crate::{controller::DS4State, synths};
+use crate::{input_engine::InputEvent, synths};
 use crate::sound_engine::SoundEngine;
 
 
@@ -113,7 +113,7 @@ where
     }
 }
 
-pub fn do_sound(controller_channel : Receiver<DS4State>) -> Receiver<f32> {
+pub fn do_sound(controller_channel : tokio::sync::broadcast::Receiver<InputEvent>) -> Receiver<f32> {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
     let sample_rate = output_config.sample_rate() as f32;
     

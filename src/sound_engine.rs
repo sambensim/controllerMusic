@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self, Receiver}};
-use crate::{controller::{self, DS4State}, chord_engine::{self, ChordEngine}};
+use crate::{chord_engine::{self, ChordEngine}, controller::{self, DS4State}, input_engine::InputEvent};
 use std::time::Instant;
 
 pub struct NoteInfo {
@@ -24,7 +24,7 @@ impl Voice {
 
 pub struct SoundEngine {
     controller_state : DS4State,
-    controller_channel : Receiver<DS4State>,
+    controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
     chord_engine : chord_engine::ChordEngine,
     freq_send : mpsc::Sender<f32>,
     pub time_step : f32,
@@ -32,9 +32,9 @@ pub struct SoundEngine {
 }
 
 impl SoundEngine {
-    pub fn init(controller_channel: Receiver<DS4State>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: f32) -> Self {
+    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<InputEvent>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: f32) -> Self {
         SoundEngine {
-            controller_state : controller_channel.recv().unwrap(),
+            controller_state : controller::DS4_EMPTY,
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
             freq_send : frequency_send_channel,
@@ -45,7 +45,7 @@ impl SoundEngine {
     pub fn get_state(&mut self) -> DS4State {
         let new_state = self.controller_channel.try_recv();
         if !new_state.is_err() {
-            self.controller_state = new_state.unwrap();
+            self.controller_state = new_state.unwrap().full_state;
         };
         self.controller_state
     }

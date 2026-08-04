@@ -49,7 +49,7 @@ l-trigger: byte 10: none == 00, full == ff
 r-trigger: byte 11: none == 00, full == ff
 */
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct DS4State {
     // Sticks: normalized -1.0 to 1.0
     pub left_stick_x: f32,
@@ -78,6 +78,28 @@ pub struct DS4State {
     // D-pad: 0-7 clockwise from up, 8 == none
     pub dpad: u8,
 }
+
+pub const DS4_EMPTY : DS4State = DS4State {
+    left_stick_x: 0.0,
+    left_stick_y: 0.0,
+    right_stick_x: 0.0,
+    right_stick_y: 0.0,
+    l_trigger: 0.0,
+    r_trigger: 0.0,
+    square: false,
+    cross: false,
+    circle: false,
+    triangle: false,
+    l_bumper: false,
+    r_bumper: false,
+    l_trigger_btn: false,
+    r_trigger_btn: false,
+    share: false,
+    options: false,
+    l_stick_btn: false,
+    r_stick_btn: false,
+    dpad: 8,
+};
 
 pub fn parse_report(buf: &[u8]) -> DS4State {
     // Normalize a raw 0-255 byte to -1.0 to 1.0
@@ -129,10 +151,9 @@ use std::f32::consts::PI;
 use std::sync::{mpsc}; //use flume? broadcasts? spmc?
 use std::thread;
 
-pub fn start_controller_thread(device: hidapi::HidDevice) -> (mpsc::Receiver<DS4State>, mpsc::Receiver<DS4State>) {
+pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4State> {
 
     let (sender, receiver) = mpsc::channel();
-    let (sender2, receiver2) = mpsc::channel();
 
     thread::spawn(move || {
         let mut buf = [0u8; 78];
@@ -140,13 +161,12 @@ pub fn start_controller_thread(device: hidapi::HidDevice) -> (mpsc::Receiver<DS4
             if let Ok(_) = device.read(&mut buf) {
                 let parsed = parse_report(&buf);
                 let _ = sender.send(parsed);
-                let _ = sender2.send(parsed);
             }
         }
     });
 
     // state // return the Arc to the caller
-    return (receiver, receiver2)
+    receiver
 }
 
 pub fn get_left_stick_section(controller_state : &DS4State) -> i8 {

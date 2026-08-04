@@ -1,14 +1,16 @@
+use std::thread::sleep;
+
 mod controller;
 mod visuals;
 mod sound;
-mod chord_engine;
 mod synths;
+mod chord_engine;
 mod sound_engine;
 mod display_engine;
+mod input_engine;
 
 fn main() {
-    let dualshock = controller::get_dualshock().unwrap();
-    let (controller_channel,  controller_channel2) = controller::start_controller_thread(dualshock);
-    let samp_channel = sound::do_sound(controller_channel);
-    visuals::run(samp_channel, controller_channel2);
+    let input_engine = input_engine::InputEngine::init();
+    let samp_channel = sound::do_sound(input_engine.subscribe());
+    visuals::run(samp_channel, input_engine.subscribe(), input_engine);
 }

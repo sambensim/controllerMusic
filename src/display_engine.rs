@@ -1,19 +1,19 @@
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine, controller::{self, DS4State}};
+use crate::{chord_engine, controller::{self, DS4State}, input_engine::InputEvent};
 
 pub struct DisplayEngine {
     controller_state : DS4State,
-    controller_channel : Receiver<DS4State>,
+    controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
     chord_engine : chord_engine::ChordEngine,
     samp_channel : Receiver<f32>,
     samples : VecDeque<f32>,
 }
 
 impl DisplayEngine {
-    pub fn init(controller_channel: Receiver<DS4State>, samp_channel : Receiver<f32>) -> Self {
+    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<InputEvent>, samp_channel : Receiver<f32>) -> Self {
         DisplayEngine {
-            controller_state : controller_channel.recv().unwrap(),
+            controller_state : controller::DS4_EMPTY,
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
             samp_channel : samp_channel,
@@ -24,7 +24,7 @@ impl DisplayEngine {
     pub fn get_state(&mut self) -> DS4State {
         let new_state = self.controller_channel.try_recv();
         if !new_state.is_err() {
-            self.controller_state = new_state.unwrap();
+            self.controller_state = new_state.unwrap().full_state;
         };
         self.controller_state
     }
