@@ -108,15 +108,15 @@ impl ChordEngine {
         format!("{}{}", note, chord_mode_str)
     }
 
-    pub fn value_to_freq(value: i32) -> f32 {
-        440.0 * 2.0_f32.powf((value - 69) as f32 / 12.0)
+    pub fn value_to_freq(value: u8) -> f32 {
+        440.0 * 2.0_f32.powf((value as f32 - 69.0) / 12.0)
     }
 
     pub fn note_to_freq(note: &str) -> Result<f32, String> {
         Ok(Self::value_to_freq(Self::note_to_value(note)?))
     }
 
-    pub fn note_to_value(note: &str) -> Result<i32, String> {
+    pub fn note_to_value(note: &str) -> Result<u8, String> {
         // Split at the boundary between the note name and the octave number
         let split = note
             .find(|c: char| c == '-' || c.is_ascii_digit())
@@ -133,6 +133,6 @@ impl ChordEngine {
             .position(|&n| n == name)
             .ok_or_else(|| format!("invalid note name: {name}"))?;
 
-        Ok(octave * 12 + note_index as i32)
+        Ok((octave * 12 + note_index as i32) as u8)
     }
 }

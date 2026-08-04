@@ -1,11 +1,9 @@
 use std::{sync::mpsc::{self}};
-use raylib::ffi::true_;
-
 use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent};
 use std::time::Instant;
 
 pub struct NoteInfo {
-    pub note : i8,
+    pub note : u8,
     pub start : Instant,
     pub release : Option<Instant>,
 }
@@ -30,7 +28,7 @@ pub struct SoundEngine {
     freq_send : mpsc::Sender<f32>,
     pub time_step : f32,
     pub voices : [Voice; SoundEngine::MAX_NOTES],
-    pub current_chord : Vec<f32>
+    pub current_chord : Vec<u8>
 }
 
 impl SoundEngine {
@@ -50,15 +48,62 @@ impl SoundEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => self.current_chord = {
-                    if controller::get_left_stick_section(&event.full_state) == -1  { vec!() } else {
-                        self.chord_engine.get_chord_notes(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32).iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
-                    }
+                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => {
+                    self.release_chord(self.current_chord.clone());
+                    self.play_chord({
+                        if controller::get_left_stick_section(&event.full_state) == -1  { vec!() } else {
+                            self.chord_engine.get_chord_notes(
+                                controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32
+                            ).into_iter().map(|note| { ChordEngine::note_to_value(&note).unwrap() }).collect()
+                        }
+                    })
                 },
                 _ => ()
             }
             possible_event = self.controller_channel.try_recv();
         };
+    }
+
+    fn release_chord(&mut self, notes : Vec<u8>) {
+        for n in notes {
+            for v in self.voices.iter_mut() {
+                if let Some(ni) = &mut v.note_info {
+                    if ni.note == n && ni.release.is_none() {
+                        ni.release = Some(Instant::now());
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    fn play_chord(&mut self, notes : Vec<u8>) {
+        for n in notes.iter() {
+            let mut assigned : bool = false;
+            for v in self.voices.iter_mut() {
+                if let Some(ni) = &mut v.note_info {
+                    if ni.note == *n && ni.release.is_some() {
+                        ni.release = None;
+                        assigned = true;
+                        break;
+                    }
+                }
+            }
+            if !assigned {
+                for v in self.voices.iter_mut() {
+                    if v.note_info.is_none() {
+                        v.note_info = Some(NoteInfo {
+                            note: *n, start: Instant::now(), release: None,
+                        });
+                        break;
+                    }
+                }
+            }
+            if !assigned {
+                //TODO – PRINT ERROR AND OVERWRITE VOICE
+            }
+        }
+        self.current_chord = notes.clone();
     }
 
     pub fn send(&mut self, freq : f32) -> f32 {
