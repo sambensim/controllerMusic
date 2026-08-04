@@ -1,14 +1,34 @@
-use std::sync::mpsc::{self, Receiver};
-
+use std::{sync::mpsc::{self, Receiver}};
 use crate::{controller::{self, DS4State}, chord_engine::{self, ChordEngine}};
+use std::time::Instant;
+
+pub struct NoteInfo {
+    pub note : i8,
+    pub start : Instant,
+    pub release : Option<Instant>,
+}
+
+pub struct Voice {
+    pub note_info : Option<NoteInfo>,
+    pub phase : f32,
+}
+
+impl Voice {
+    fn new() -> Self {
+        Voice {
+            note_info : None,
+            phase : 0.0,
+        }
+    }
+}
 
 pub struct SoundEngine {
     controller_state : DS4State,
     controller_channel : Receiver<DS4State>,
     chord_engine : chord_engine::ChordEngine,
-    pub phases : [f32; SoundEngine::MAX_NOTES],
     freq_send : mpsc::Sender<f32>,
     pub time_step : f32,
+    pub voices : [Voice; SoundEngine::MAX_NOTES],
 }
 
 impl SoundEngine {
@@ -17,9 +37,9 @@ impl SoundEngine {
             controller_state : controller_channel.recv().unwrap(),
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
-            phases : [0.0; SoundEngine::MAX_NOTES],
             freq_send : frequency_send_channel,
             time_step : 1.0 / sample_rate,
+            voices : std::array::from_fn(|_| Voice::new()),
         }
     }
     pub fn get_state(&mut self) -> DS4State {
