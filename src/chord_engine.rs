@@ -136,22 +136,3 @@ impl ChordEngine {
         Ok(octave * 12 + note_index as i32)
     }
 }
-
-// fn main() {
-//     let mut engine = ChordEngine::new(0, 3); // key of C, octave 3
-
-//     println!("Key notes: {:?}", engine.key_notes);
-
-//     let chord = engine.get_chord_notes(0, -1);
-//     println!("Chord 0, mode -1: {:?}", chord);
-
-//     let name = engine.get_chord_name(0, -1);
-//     println!("Chord name: {}", name);
-
-//     let value = ChordEngine::note_to_value("A4").unwrap();
-//     println!("A4 = {}", value);
-
-//     engine.change_key(7); // key of G
-//     let chord_g = engine.get_chord_notes(0, 0);
-//     println!("G key, chord 0, mode 0: {:?}", chord_g);
-// }

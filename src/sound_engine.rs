@@ -1,11 +1,11 @@
 use std::sync::mpsc::{self, Receiver};
 
-use crate::{controller::{self, DS4State}, music_theory::{self, ChordEngine}};
+use crate::{controller::{self, DS4State}, chord_engine::{self, ChordEngine}};
 
 pub struct SoundEngine {
     pub controller_state : DS4State,
     pub controller_channel : Receiver<DS4State>,
-    pub chord_engine : music_theory::ChordEngine,
+    pub chord_engine : chord_engine::ChordEngine,
     pub phases : [f32; SoundEngine::MAX_NOTES],
     pub freq_send : mpsc::Sender<f32>,
     pub time_step : f32,
