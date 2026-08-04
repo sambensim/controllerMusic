@@ -3,7 +3,8 @@ use crate::sound_engine::SoundEngine;
 pub fn get_process(mut sound_engine : SoundEngine) -> impl FnMut(f32, f32, f32) -> f32 {
     {
         move |_: f32, _: f32, _: f32| -> f32 {
-            let freqs = sound_engine.get_chord();
+            sound_engine.handle_input();
+            let freqs = &sound_engine.current_chord;
             let mut out : f32 = 0.0;
             for i in 0..SoundEngine::MAX_NOTES {
                 if freqs.get(i).is_none() {

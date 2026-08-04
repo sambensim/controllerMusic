@@ -5,7 +5,7 @@ use crate::controller::{self, DS4State};
 #[derive(Clone)]
 pub struct InputEvent {
     pub full_state : DS4State,
-    event_info : controller::InputEvent,
+    pub event_info : controller::InputEvent,
 }
 
 

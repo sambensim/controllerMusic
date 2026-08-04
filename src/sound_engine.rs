@@ -29,6 +29,7 @@ pub struct SoundEngine {
     freq_send : mpsc::Sender<f32>,
     pub time_step : f32,
     pub voices : [Voice; SoundEngine::MAX_NOTES],
+    pub current_chord : Vec<f32>
 }
 
 impl SoundEngine {
@@ -40,6 +41,7 @@ impl SoundEngine {
             freq_send : frequency_send_channel,
             time_step : 1.0 / sample_rate,
             voices : std::array::from_fn(|_| Voice::new()),
+            current_chord : Vec::new(),
         }
     }
     pub fn get_state(&mut self) -> DS4State {
@@ -50,15 +52,20 @@ impl SoundEngine {
         self.controller_state
     }
 
-    pub fn get_chord(&mut self) -> Vec<f32> {
-        let state = self.get_state();
-        let loct = controller::get_left_stick_section(&state);
-        if loct == -1 {
-            return vec!();
+    pub fn handle_input(&mut self) {
+        let mut possible_event = self.controller_channel.try_recv();
+        while !possible_event.is_err() {
+            let event = possible_event.unwrap();
+            match event.event_info {
+                controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.current_chord = {
+                    if controller::get_left_stick_section(&event.full_state) == -1  { vec!() } else {
+                        self.chord_engine.get_chord_notes(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32).iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
+                    }
+                },
+                _ => ()
+            }
+            possible_event = self.controller_channel.try_recv();
         };
-        let roct = controller::get_right_stick_section(&state);
-        let notes = self.chord_engine.get_chord_notes(loct as i32, roct as i32);
-        notes.iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
     }
 
     pub fn send(&mut self, freq : f32) -> f32 {

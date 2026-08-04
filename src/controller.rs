@@ -168,14 +168,14 @@ pub enum  InputEvent {
 }
 
 #[derive(Copy, Clone, Debug)]
-enum DirectionalType {
+pub enum DirectionalType {
     Left,
     Right,
     Dpad,
 }
 
 #[derive(Copy, Clone, Debug)]
-enum TriggerType {
+pub enum TriggerType {
     Left,
     Right,
 }
