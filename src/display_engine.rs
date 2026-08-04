@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine, controller::{self, DS4State}, input_engine::InputEvent};
+use crate::{chord_engine, controller::{self}, input_engine::InputEvent};
 
 pub struct DisplayEngine {
     controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
@@ -8,7 +8,7 @@ pub struct DisplayEngine {
     samp_channel : Receiver<f32>,
     samples : VecDeque<f32>,
     pub current_chord : String,
-
+    pub selected_chord : String,
 }
 
 impl DisplayEngine {
@@ -19,6 +19,7 @@ impl DisplayEngine {
             samp_channel : samp_channel,
             samples : VecDeque::from([0.0_f32; DisplayEngine::SAMPLE_CAPACITY]),
             current_chord : "None".to_string(),
+            selected_chord : "None".to_string(),
         }
     }
 
@@ -27,7 +28,12 @@ impl DisplayEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.current_chord = {
+                controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.selected_chord = {
+                    if controller::get_left_stick_section(&event.full_state) == -1  { "None".to_string() } else {
+                        self.chord_engine.get_chord_name(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32)
+                    }
+                },
+                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => self.current_chord = {
                     if controller::get_left_stick_section(&event.full_state) == -1  { "None".to_string() } else {
                         self.chord_engine.get_chord_name(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32)
                     }

@@ -1,4 +1,6 @@
 use std::{sync::mpsc::{self}};
+use raylib::ffi::true_;
+
 use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent};
 use std::time::Instant;
 
@@ -48,7 +50,7 @@ impl SoundEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.current_chord = {
+                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => self.current_chord = {
                     if controller::get_left_stick_section(&event.full_state) == -1  { vec!() } else {
                         self.chord_engine.get_chord_notes(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32).iter().map(|n : &String| ChordEngine::note_to_freq(n).unwrap()).collect()
                     }

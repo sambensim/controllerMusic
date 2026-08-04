@@ -27,6 +27,10 @@ fn visual_loop(mut d : RaylibDrawHandle, display_engine : &mut DisplayEngine, in
     let points: Vec<Vector2> = display_engine.get_samples().iter().enumerate().map(|(i, samp)| Vector2 { x: DisplayEngine::WIDTH - (i as f32)/(DisplayEngine::SAMPLE_CAPACITY as f32)*DisplayEngine::WIDTH, y: *samp*(DisplayEngine::HEIGHT/4.0) + DisplayEngine::HEIGHT/2.0}).collect();
     d.draw_line_strip(&points,Color::BLACK);
 
-    let text = &display_engine.current_chord;
+    let text = format!(
+        "playing: {}\nselected: {}",
+        &display_engine.current_chord,
+        &display_engine.selected_chord,
+    );
     d.draw_text(&text, 12, 12, 20, Color::BLACK);
 }
