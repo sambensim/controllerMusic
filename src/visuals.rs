@@ -23,9 +23,10 @@ pub fn run(samp_channel : Receiver<f32>, controller_channel : tokio::sync::broad
 
 fn visual_loop(mut d : RaylibDrawHandle, display_engine : &mut DisplayEngine, input_engine : &mut InputEngine) {
     input_engine.step();
+    display_engine.handle_input();
     let points: Vec<Vector2> = display_engine.get_samples().iter().enumerate().map(|(i, samp)| Vector2 { x: DisplayEngine::WIDTH - (i as f32)/(DisplayEngine::SAMPLE_CAPACITY as f32)*DisplayEngine::WIDTH, y: *samp*(DisplayEngine::HEIGHT/4.0) + DisplayEngine::HEIGHT/2.0}).collect();
     d.draw_line_strip(&points,Color::BLACK);
 
-    let text = display_engine.get_chord();
+    let text = &display_engine.current_chord;
     d.draw_text(&text, 12, 12, 20, Color::BLACK);
 }

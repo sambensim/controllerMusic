@@ -41,7 +41,7 @@ impl InputEngine {
                     full_state : new_state.unwrap(),
                     event_info : e,
                 });
-                print!("{:?}\n", e);
+                // print!("{:?}\n", e);
             }
             self.last_state = new_state.unwrap();
             new_state = self.controller_stream.try_recv();

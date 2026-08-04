@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller::{self, DS4State}, input_engine::InputEvent};
+use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent};
 use std::time::Instant;
 
 pub struct NoteInfo {
@@ -23,7 +23,6 @@ impl Voice {
 }
 
 pub struct SoundEngine {
-    controller_state : DS4State,
     controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
     chord_engine : chord_engine::ChordEngine,
     freq_send : mpsc::Sender<f32>,
@@ -35,7 +34,6 @@ pub struct SoundEngine {
 impl SoundEngine {
     pub fn init(controller_channel: tokio::sync::broadcast::Receiver<InputEvent>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: f32) -> Self {
         SoundEngine {
-            controller_state : controller::DS4_EMPTY,
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
             freq_send : frequency_send_channel,
@@ -43,13 +41,6 @@ impl SoundEngine {
             voices : std::array::from_fn(|_| Voice::new()),
             current_chord : Vec::new(),
         }
-    }
-    pub fn get_state(&mut self) -> DS4State {
-        let new_state = self.controller_channel.try_recv();
-        if !new_state.is_err() {
-            self.controller_state = new_state.unwrap().full_state;
-        };
-        self.controller_state
     }
 
     pub fn handle_input(&mut self) {
