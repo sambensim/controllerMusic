@@ -4,6 +4,8 @@ use cpal::{
     SizedSample, StreamConfig, I24,
 };
 use std::{sync::mpsc::{self, Receiver}};
+use crate::{controller::DS4State, synths};
+use crate::sound_engine::SoundEngine;
 
 
 fn print_input_options(host : &cpal::Host) {
@@ -111,28 +113,12 @@ where
     }
 }
 
-use crate::{controller::DS4State, synths};
-use crate::chord_engine;
-use crate::sound_engine::SoundEngine;
-
-
-
-
 pub fn do_sound(controller_channel : Receiver<DS4State>) -> Receiver<f32> {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
     let sample_rate = output_config.sample_rate() as f32;
     
     let (sender, receiver) = mpsc::channel();
-
-    let sound_engine = SoundEngine {
-        controller_state : controller_channel.recv().unwrap(),
-        controller_channel : controller_channel,
-        chord_engine : chord_engine::ChordEngine::new(0, 4),
-        phases : [0.0; SoundEngine::MAX_NOTES],
-        freq_send : sender,
-        time_step : 1.0 / sample_rate,
-    };
-    
+    let sound_engine = SoundEngine::init(controller_channel, sender, sample_rate);
     let sound_process = synths::get_process(sound_engine);
     let next_value = sound_main(sample_rate, sound_process);
 

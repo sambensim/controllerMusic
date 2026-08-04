@@ -3,15 +3,25 @@ use std::sync::mpsc::{self, Receiver};
 use crate::{controller::{self, DS4State}, chord_engine::{self, ChordEngine}};
 
 pub struct SoundEngine {
-    pub controller_state : DS4State,
-    pub controller_channel : Receiver<DS4State>,
-    pub chord_engine : chord_engine::ChordEngine,
+    controller_state : DS4State,
+    controller_channel : Receiver<DS4State>,
+    chord_engine : chord_engine::ChordEngine,
     pub phases : [f32; SoundEngine::MAX_NOTES],
-    pub freq_send : mpsc::Sender<f32>,
+    freq_send : mpsc::Sender<f32>,
     pub time_step : f32,
 }
 
 impl SoundEngine {
+    pub fn init(controller_channel: Receiver<DS4State>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: f32) -> Self {
+        SoundEngine {
+            controller_state : controller_channel.recv().unwrap(),
+            controller_channel : controller_channel,
+            chord_engine : chord_engine::ChordEngine::new(0, 4),
+            phases : [0.0; SoundEngine::MAX_NOTES],
+            freq_send : frequency_send_channel,
+            time_step : 1.0 / sample_rate,
+        }
+    }
     pub fn get_state(&mut self) -> DS4State {
         let new_state = self.controller_channel.try_recv();
         if !new_state.is_err() {
