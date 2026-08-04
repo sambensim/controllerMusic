@@ -1,4 +1,7 @@
 use hidapi::{HidApi, HidDevice};
+use std::f32::consts::PI;
+use std::sync::{mpsc};
+use std::thread;
 
 pub fn get_dualshock() -> Result<HidDevice, String> {
     let api = HidApi::new().expect("Failed to initialize HidApi");
@@ -62,21 +65,10 @@ pub struct DS4State {
     pub r_trigger: f32,
 
     // Buttons
-    pub square: bool,
-    pub cross: bool,
-    pub circle: bool,
-    pub triangle: bool,
-    pub l_bumper: bool,
-    pub r_bumper: bool,
-    pub l_trigger_btn: bool,
-    pub r_trigger_btn: bool,
-    pub share: bool,
-    pub options: bool,
-    pub l_stick_btn: bool,
-    pub r_stick_btn: bool,
+    pub packed_button_states : u16,
 
     // D-pad: 0-7 clockwise from up, 8 == none
-    pub dpad: u8,
+    pub dpad: i8,
 }
 
 pub const DS4_EMPTY : DS4State = DS4State {
@@ -86,18 +78,7 @@ pub const DS4_EMPTY : DS4State = DS4State {
     right_stick_y: 0.0,
     l_trigger: 0.0,
     r_trigger: 0.0,
-    square: false,
-    cross: false,
-    circle: false,
-    triangle: false,
-    l_bumper: false,
-    r_bumper: false,
-    l_trigger_btn: false,
-    r_trigger_btn: false,
-    share: false,
-    options: false,
-    l_stick_btn: false,
-    r_stick_btn: false,
+    packed_button_states : 0,
     dpad: 8,
 };
 
@@ -112,7 +93,7 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
         byte as f32 / 255.0
     };
 
-    let buttons = buf[7];
+    let byte7 = buf[7];
     let byte8 = buf[8];
 
     DS4State {
@@ -124,32 +105,13 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
         l_trigger: trigger(buf[10]),
         r_trigger: trigger(buf[11]),
 
-        // High nibble of byte 7
-        square:   buttons & 0b00010000 != 0,
-        cross:    buttons & 0b00100000 != 0,
-        circle:   buttons & 0b01000000 != 0,
-        triangle: buttons & 0b10000000 != 0,
-
+        // High nibble of byte 7 + all of byte 8
+        packed_button_states :  (byte8 as u16) << 4 | ((byte7 & 0xF0) as u16) >> 4,
+        
         // Low nibble of byte 7
-        dpad: buttons & 0x0F,
-
-        // High nibble of byte 8
-        share:       byte8 & 0b00010000 != 0,
-        options:     byte8 & 0b00100000 != 0,
-        l_stick_btn: byte8 & 0b01000000 != 0,
-        r_stick_btn: byte8 & 0b10000000 != 0,
-
-        // Low nibble of byte 8
-        l_bumper:     byte8 & 0b00000001 != 0,
-        r_bumper:     byte8 & 0b00000010 != 0,
-        l_trigger_btn: byte8 & 0b00000100 != 0,
-        r_trigger_btn: byte8 & 0b00001000 != 0,
+        dpad: byte7 as i8 & 0x0F,
     }
 }
-
-use std::f32::consts::PI;
-use std::sync::{mpsc}; //use flume? broadcasts? spmc?
-use std::thread;
 
 pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4State> {
 
@@ -185,3 +147,67 @@ fn get_vec_section(x : f32, y : f32) -> i8 {
     let normalized_angle : f32 = if angle < 0.0 { angle + 2.0 * PI } else { angle };
     ((normalized_angle / ((2.0 * PI) / 8.0)).round() % 8.0) as i8
   }
+
+pub fn get_button_state(controller_state : &DS4State, id : ButtonType) -> bool {
+    (controller_state.packed_button_states & 1<<id as u8) != 0
+}
+
+pub fn button_events(prev: u16, current: u16) -> impl Iterator<Item = InputEvent> {
+    let changed = prev ^ current;
+    BUTTONS.iter().enumerate()
+    .filter(move |(i, _)| changed & (1u16 << i) != 0)
+    .map(move |(i, &b)| InputEvent::Button(b, current & (1u16 << i) != 0))
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum  InputEvent {
+    Directional(DirectionalType, i8),
+    Trigger(TriggerType, f32),
+    Button(ButtonType, bool),
+    None,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum DirectionalType {
+    Left,
+    Right,
+    Dpad,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum TriggerType {
+    Left,
+    Right,
+}
+
+macro_rules! buttons { //AI
+    ($($name:ident),* $(,)?) => {
+        #[repr(u8)]
+        #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+        pub enum ButtonType { $($name),* }
+
+        pub const BUTTONS: &[ButtonType] = &[$(ButtonType::$name),*];
+    };
+}
+
+buttons!(
+    Square, Cross, Circle, Triangle,
+    LBumper, RBumper, LTriggerBtn, RTriggerBtn,
+    Share, Options, LStickBtn, RStickBtn,
+);
+
+pub fn get_events(prev_state : DS4State, current_state : DS4State) -> impl Iterator<Item = InputEvent> {
+    let left =  (get_left_stick_section(&prev_state) != get_left_stick_section(&current_state))
+        .then(|| InputEvent::Directional(DirectionalType::Left, get_left_stick_section(&current_state)))
+        .into_iter();
+    let right =  (get_right_stick_section(&prev_state) != get_right_stick_section(&current_state))
+        .then(|| InputEvent::Directional(DirectionalType::Right, get_right_stick_section(&current_state)))
+        .into_iter();
+    let dpad = (prev_state.dpad != current_state.dpad)
+        .then(|| InputEvent::Directional(DirectionalType::Right, current_state.dpad))
+        .into_iter();
+    let buttons = button_events(prev_state.packed_button_states, current_state.packed_button_states);
+    //TODO - handle continuos input events (like trigger)
+    left.chain(right).chain(dpad)
+        .chain(buttons)
+}

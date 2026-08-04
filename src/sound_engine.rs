@@ -1,4 +1,4 @@
-use std::{sync::mpsc::{self, Receiver}};
+use std::{sync::mpsc::{self}};
 use crate::{chord_engine::{self, ChordEngine}, controller::{self, DS4State}, input_engine::InputEvent};
 use std::time::Instant;
 
