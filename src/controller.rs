@@ -19,7 +19,7 @@ pub fn get_dualshock() -> Result<HidDevice, String> {
     }
 }
 
-pub fn _print_data(controller : HidDevice) {
+pub fn _print_data(controller : &HidDevice) {
     loop {
         let mut buf = [0u8; 78]; // 0x11 report is 78 bytes
         match controller.read(&mut buf) {
@@ -59,14 +59,11 @@ pub struct DS4State {
     pub left_stick_y: f32,
     pub right_stick_x: f32,
     pub right_stick_y: f32,
-
     // Triggers: 0.0 to 1.0
     pub l_trigger: f32,
     pub r_trigger: f32,
-
     // Buttons
     pub packed_button_states : u16,
-
     // D-pad: 0-7 clockwise from up, 8 == none
     pub dpad: i8,
 }
@@ -87,30 +84,38 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
     let axis = |byte: u8| -> f32 {
         (byte as f32 - 128.0) / 128.0
     };
-
     // Normalize a raw 0-255 byte to 0.0 to 1.0
     let trigger = |byte: u8| -> f32 {
         byte as f32 / 255.0
     };
-
-    let byte7 = buf[7];
-    let byte8 = buf[8];
-
-    DS4State {
-        left_stick_x:  axis(buf[3]),
-        left_stick_y:  axis(buf[4]),
-        right_stick_x: axis(buf[5]),
-        right_stick_y: axis(buf[6]),
-
-        l_trigger: trigger(buf[10]),
-        r_trigger: trigger(buf[11]),
-
-        // High nibble of byte 7 + all of byte 8
-        packed_button_states :  (byte8 as u16) << 4 | ((byte7 & 0xF0) as u16) >> 4,
-        
-        // Low nibble of byte 7
-        dpad: byte7 as i8 & 0x0F,
+    if buf[0] == 0x11 {
+        return DS4State {
+            left_stick_x:  axis(buf[3]),
+            left_stick_y:  axis(buf[4]),
+            right_stick_x: axis(buf[5]),
+            right_stick_y: axis(buf[6]),
+            l_trigger: trigger(buf[10]),
+            r_trigger: trigger(buf[11]),
+            // High nibble of byte 7 + all of byte 8
+            packed_button_states :  (buf[8] as u16) << 4 | ((buf[7] & 0xF0) as u16) >> 4,
+            // Low nibble of byte 7
+            dpad: buf[7] as i8 & 0x0F,
+        }
+    } else if buf[0] == 0x01 {
+        return DS4State {
+            left_stick_x:  axis(buf[1]),
+            left_stick_y:  axis(buf[2]),
+            right_stick_x: axis(buf[3]),
+            right_stick_y: axis(buf[4]),
+            l_trigger: trigger(buf[8]),
+            r_trigger: trigger(buf[9]),
+            // High nibble of byte 5 + all of byte 6
+            packed_button_states :  (buf[6] as u16) << 4 | ((buf[5] & 0xF0) as u16) >> 4,
+            // Low nibble of byte 7
+            dpad: buf[5] as i8 & 0x0F,
+        }
     }
+    panic!("unknown mapping");
 }
 
 pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4State> {
@@ -120,8 +125,10 @@ pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4S
     thread::spawn(move || {
         let mut buf = [0u8; 78];
         loop {
+            // _print_data(&device);
             if let Ok(_) = device.read(&mut buf) {
                 let parsed = parse_report(&buf);
+                // println!("{parsed:?}");
                 let _ = sender.send(parsed);
             }
         }

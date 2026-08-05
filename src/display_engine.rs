@@ -55,6 +55,6 @@ impl DisplayEngine {
     }
 
     pub const SAMPLE_CAPACITY : usize = 1000;
-    pub const WIDTH : f32 = 640_f32;
-    pub const HEIGHT : f32 = 480_f32;
+    pub const WIDTH : f32 = 1280_f32;
+    pub const HEIGHT : f32 = 960_f32;
 }

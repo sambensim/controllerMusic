@@ -82,8 +82,9 @@ impl SoundEngine {
             let mut assigned : bool = false;
             for v in self.voices.iter_mut() {
                 if let Some(ni) = &mut v.note_info {
-                    if ni.note == *n && ni.release.is_some() {
+                    if ni.release.is_some() {
                         ni.release = None;
+                        ni.note = *n;
                         assigned = true;
                         break;
                     }
@@ -99,9 +100,9 @@ impl SoundEngine {
                     }
                 }
             }
-            if !assigned {
-                //TODO – PRINT ERROR AND OVERWRITE VOICE
-            }
+            // if !assigned {
+            //     TODO – PRINT ERROR AND OVERWRITE VOICE
+            // }
         }
         self.current_chord = notes.clone();
     }
