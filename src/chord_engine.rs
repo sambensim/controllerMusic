@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 const ALL_NOTES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const MAJOR_INTERVALS: [i32; 7] = [0, 2, 4, 5, 7, 9, 11];
+const MAJOR_INTERVALS: [u8; 7] = [0, 2, 4, 5, 7, 9, 11];
 
-fn chord_type_dict() -> HashMap<&'static str, Vec<i32>> {
+fn chord_type_dict() -> HashMap<&'static str, Vec<u8>> {
     HashMap::from([
         ("maj",     vec![0, 4, 7]),
         ("min",     vec![0, 3, 7]),
@@ -37,15 +37,15 @@ fn chord_mode_dict() -> HashMap<i32, Vec<&'static str>> {
 }
 
 pub struct ChordEngine {
-    key: i32,
-    octave: i32,
+    key: u8,
+    octave: u8,
     key_notes: Vec<String>,
-    chord_types: HashMap<&'static str, Vec<i32>>,
+    chord_types: HashMap<&'static str, Vec<u8>>,
     chord_modes: HashMap<i32, Vec<&'static str>>,
 }
 
 impl ChordEngine {
-    pub fn new(key: i32, octave: i32) -> Self {
+    pub fn new(key: u8, octave: u8) -> Self {
         let mut engine = ChordEngine {
             key,
             octave,
@@ -57,9 +57,29 @@ impl ChordEngine {
         engine
     }
 
-    pub fn change_key(&mut self, new_key: i32) {
-        self.key = new_key;
+    pub fn set_key(&mut self, key: u8) {
+        self.key = key;
         self.rebuild_key_notes();
+    }
+
+    pub fn increment_key(&mut self) {
+        self.set_key((self.key + 1) % 12); 
+    }
+
+    pub fn get_key(&self) -> u8 {
+        self.key
+    }
+
+    pub fn set_octave(&mut self, octave: u8) {
+        self.octave = octave;
+    }
+
+    pub fn increment_octave(&mut self) {
+        self.set_octave((self.octave + 1) % 9); 
+    }
+
+     pub fn get_octave(&self) -> u8 {
+        self.octave
     }
 
     fn rebuild_key_notes(&mut self) {
@@ -69,7 +89,7 @@ impl ChordEngine {
             .collect();
     }
 
-    fn note_add(&self, note: i32, diff: i32) -> String {
+    fn note_add(&self, note: u8, diff: u8) -> String {
         let mut ni = note + diff;
         let mut bo = self.octave;
         while ni >= 12 {
@@ -79,14 +99,14 @@ impl ChordEngine {
         format!("{}{}", ALL_NOTES[ni as usize], bo)
     }
 
-    fn key_note_all_note_index(key_note_index: usize) -> i32 {
+    fn key_note_all_note_index(key_note_index: usize) -> u8 {
         MAJOR_INTERVALS[key_note_index]
     }
 
     pub fn get_chord_notes(&self, chord_index: i32, chord_mode: i32) -> Vec<String> {
         let mode = self.chord_modes.get(&chord_mode).expect("unknown chord mode");
         let chord_mode_str = mode[(chord_index % 7) as usize];
-        let octave_shift = 12 * (chord_index / 7);
+        let octave_shift = 12 * (chord_index / 7) as u8;
         let root_offset = Self::key_note_all_note_index((chord_index % 7) as usize) + octave_shift;
 
         self.chord_types
@@ -98,7 +118,7 @@ impl ChordEngine {
     }
 
     pub fn get_chord_name(&self, chord_index: i32, chord_mode: i32) -> String {
-        let octave_shift = 12 * (chord_index / 7);
+        let octave_shift = 12 * (chord_index / 7) as u8;
         let note = self.note_add(
             self.key,
             Self::key_note_all_note_index((chord_index % 7) as usize) + octave_shift,

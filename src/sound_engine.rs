@@ -58,6 +58,8 @@ impl SoundEngine {
                         }
                     })
                 },
+                controller::InputEvent::Button(controller::ButtonType::Share, true) => self.chord_engine.increment_key(),
+                controller::InputEvent::Button(controller::ButtonType::Options, true) => self.chord_engine.increment_octave(),
                 _ => ()
             }
             possible_event = self.controller_channel.try_recv();

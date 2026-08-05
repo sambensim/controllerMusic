@@ -28,9 +28,11 @@ fn visual_loop(mut d : RaylibDrawHandle, display_engine : &mut DisplayEngine, in
     d.draw_line_strip(&points,Color::BLACK);
 
     let text = format!(
-        "playing: {}\nselected: {}",
+        "playing: {}\nselected: {}\nkey: {}\noctave: {}",
         &display_engine.current_chord,
         &display_engine.selected_chord,
+        &display_engine.get_key(),
+        &display_engine.get_octave(),
     );
     d.draw_text(&text, 12, 12, 20, Color::BLACK);
 }

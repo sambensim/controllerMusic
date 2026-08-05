@@ -38,6 +38,8 @@ impl DisplayEngine {
                         self.chord_engine.get_chord_name(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32)
                     }
                 },
+                controller::InputEvent::Button(controller::ButtonType::Share, true) => self.chord_engine.increment_key(),
+                controller::InputEvent::Button(controller::ButtonType::Options, true) => self.chord_engine.increment_octave(),
                 _ => ()
             }
             possible_event = self.controller_channel.try_recv();
@@ -52,6 +54,14 @@ impl DisplayEngine {
         }
         self.samples.truncate(DisplayEngine::SAMPLE_CAPACITY);
         &self.samples
+    }
+
+    pub fn get_key(&self) -> u8 {
+        self.chord_engine.get_key()
+    }
+
+    pub fn get_octave(&self) -> u8 {
+        self.chord_engine.get_octave()
     }
 
     pub const SAMPLE_CAPACITY : usize = 1000;
