@@ -60,6 +60,16 @@ impl SoundEngine {
                 },
                 controller::InputEvent::Button(controller::ButtonType::Share, true) => self.chord_engine.increment_key(),
                 controller::InputEvent::Button(controller::ButtonType::Options, true) => self.chord_engine.increment_octave(),
+                controller::InputEvent::Button(controller::ButtonType::LStickBtn, true) => {
+                    self.chord_engine.decrement_key();
+                    self.chord_engine.decrement_octave();
+                },
+                controller::InputEvent::Button(controller::ButtonType::LStickBtn, false) => {
+                    self.chord_engine.increment_key();
+                    self.chord_engine.increment_octave();
+                },
+                controller::InputEvent::Button(controller::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
+                controller::InputEvent::Button(controller::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                 _ => ()
             }
             possible_event = self.controller_channel.try_recv();

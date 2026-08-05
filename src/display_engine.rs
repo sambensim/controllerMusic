@@ -1,6 +1,6 @@
-use std::{collections::VecDeque, sync::mpsc::Receiver};
+use std::{collections::VecDeque, iter::StepBy, sync::mpsc::Receiver};
 
-use crate::{chord_engine, controller::{self}, input_engine::InputEvent};
+use crate::{chord_engine, controller::{self, DS4State}, input_engine::InputEvent};
 
 pub struct DisplayEngine {
     controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
@@ -28,22 +28,31 @@ impl DisplayEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.selected_chord = {
-                    if controller::get_left_stick_section(&event.full_state) == -1  { "None".to_string() } else {
-                        self.chord_engine.get_chord_name(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32)
-                    }
-                },
-                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => self.current_chord = {
-                    if controller::get_left_stick_section(&event.full_state) == -1  { "None".to_string() } else {
-                        self.chord_engine.get_chord_name(controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32)
-                    }
-                },
+                // controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.selected_chord = self.get_selected_chord(&event.full_state),
+                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
                 controller::InputEvent::Button(controller::ButtonType::Share, true) => self.chord_engine.increment_key(),
                 controller::InputEvent::Button(controller::ButtonType::Options, true) => self.chord_engine.increment_octave(),
+                controller::InputEvent::Button(controller::ButtonType::LStickBtn, true) => {
+                    self.chord_engine.decrement_key();
+                    self.chord_engine.decrement_octave();
+                },
+                controller::InputEvent::Button(controller::ButtonType::LStickBtn, false) => {
+                    self.chord_engine.increment_key();
+                    self.chord_engine.increment_octave();
+                },
+                controller::InputEvent::Button(controller::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
+                controller::InputEvent::Button(controller::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                 _ => ()
             }
             possible_event = self.controller_channel.try_recv();
+            self.selected_chord = self.get_selected_chord(&event.full_state);
         };
+    }
+
+    fn get_selected_chord(&self, full_state : &DS4State) -> String {
+        if controller::get_left_stick_section(full_state) == -1  { "None".to_string() } else {
+            self.chord_engine.get_chord_name(controller::get_left_stick_section(full_state) as i32, controller::get_right_stick_section(full_state) as i32)
+        }
     }
 
     pub fn get_samples(&mut self) -> &VecDeque<f32> {
@@ -56,7 +65,7 @@ impl DisplayEngine {
         &self.samples
     }
 
-    pub fn get_key(&self) -> u8 {
+    pub fn get_key(&self) -> String {
         self.chord_engine.get_key()
     }
 

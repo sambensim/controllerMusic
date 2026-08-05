@@ -62,16 +62,24 @@ impl ChordEngine {
         self.rebuild_key_notes();
     }
 
+    pub fn decrement_key(&mut self) {
+        self.set_key((self.key + (12 - 1)) % 12); 
+    }
+
     pub fn increment_key(&mut self) {
         self.set_key((self.key + 1) % 12); 
     }
 
-    pub fn get_key(&self) -> u8 {
-        self.key
+    pub fn get_key(&self) -> String {
+        ALL_NOTES[self.key as usize].to_string()
     }
 
     pub fn set_octave(&mut self, octave: u8) {
         self.octave = octave;
+    }
+
+    pub fn decrement_octave(&mut self) {
+        self.set_octave((self.octave + (9 - 1)) % 9); 
     }
 
     pub fn increment_octave(&mut self) {

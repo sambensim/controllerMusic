@@ -19,23 +19,25 @@ pub fn get_dualshock() -> Result<HidDevice, String> {
     }
 }
 
-pub fn _print_data(controller : &HidDevice) {
-    loop {
-        let mut buf = [0u8; 78]; // 0x11 report is 78 bytes
-        match controller.read(&mut buf) {
-            Ok(len) => {
-                // Print each byte with its index so you can identify offsets
-                for (i, byte) in buf[..len].iter().enumerate() {
-                    print!("[{}]:{:#04x} ", i, byte);
-                }
-                println!();
-            }
-            Err(e) => {
-                eprintln!("Read error: {}", e);
-                break;
-            }
-        }
+pub fn enable_full_bt_reports(device: &hidapi::HidDevice) -> hidapi::HidResult<()> { //AI
+    // Request the BT calibration feature report (0x05).
+    // This is what tells the DS4 to switch from the short 0x01 reports
+    // to the extended 0x11–0x19 reports. You only need to call this once
+    // after opening the device over Bluetooth.
+    let mut buf = [0u8; 41]; // ReportFeatureInCalibrateBT is 41 bytes
+    buf[0] = 0x05;           // report ID
+    device.get_feature_report(&mut buf)?;
+    // You can parse the calibration data out of buf here if you want it,
+    // but just making the request is enough to unlock the extended reports.
+    Ok(())
+}
+
+pub fn _print_data(data : &[u8; 78]) {
+    // Print each byte with its index so you can identify offsets
+    for (i, byte) in data[..78].iter().enumerate() {
+        print!("[{}]:{:#04x} ", i, byte);
     }
+    println!();
 }
 
 /*
@@ -79,7 +81,7 @@ pub const DS4_EMPTY : DS4State = DS4State {
     dpad: 8,
 };
 
-pub fn parse_report(buf: &[u8]) -> DS4State {
+pub fn parse_report(buf: &[u8]) -> Option<DS4State> {
     // Normalize a raw 0-255 byte to -1.0 to 1.0
     let axis = |byte: u8| -> f32 {
         (byte as f32 - 128.0) / 128.0
@@ -89,7 +91,10 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
         byte as f32 / 255.0
     };
     if buf[0] == 0x11 {
-        return DS4State {
+        if (buf[1] >> 7) & 1 == 0 {
+            return None; //audio only output (microphone?)
+        }
+        return Some(DS4State {
             left_stick_x:  axis(buf[3]),
             left_stick_y:  axis(buf[4]),
             right_stick_x: axis(buf[5]),
@@ -100,9 +105,9 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
             packed_button_states :  (buf[8] as u16) << 4 | ((buf[7] & 0xF0) as u16) >> 4,
             // Low nibble of byte 7
             dpad: buf[7] as i8 & 0x0F,
-        }
+        })
     } else if buf[0] == 0x01 {
-        return DS4State {
+        return Some(DS4State {
             left_stick_x:  axis(buf[1]),
             left_stick_y:  axis(buf[2]),
             right_stick_x: axis(buf[3]),
@@ -113,7 +118,7 @@ pub fn parse_report(buf: &[u8]) -> DS4State {
             packed_button_states :  (buf[6] as u16) << 4 | ((buf[5] & 0xF0) as u16) >> 4,
             // Low nibble of byte 7
             dpad: buf[5] as i8 & 0x0F,
-        }
+        })
     }
     panic!("unknown mapping");
 }
@@ -125,11 +130,14 @@ pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4S
     thread::spawn(move || {
         let mut buf = [0u8; 78];
         loop {
-            // _print_data(&device);
             if let Ok(_) = device.read(&mut buf) {
+                // _print_data(&buf);
                 let parsed = parse_report(&buf);
-                // println!("{parsed:?}");
-                let _ = sender.send(parsed);
+                if let Some(data) = parsed {
+                    // println!("{data:?}");
+                    // println!("{:?}", get_button_state(&data, ButtonType::RBumper));
+                    let _ = sender.send(data);
+                }
             }
         }
     });
@@ -214,7 +222,7 @@ pub fn get_events(prev_state : DS4State, current_state : DS4State) -> impl Itera
         .then(|| InputEvent::Directional(DirectionalType::Right, current_state.dpad))
         .into_iter();
     let buttons = button_events(prev_state.packed_button_states, current_state.packed_button_states);
-    //TODO - handle continuos input events (like trigger)
+    //TODO - handle continuous input events (like trigger)
     left.chain(right).chain(dpad)
         .chain(buttons)
 }

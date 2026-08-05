@@ -18,6 +18,7 @@ pub struct InputEngine {
 impl InputEngine {
     pub fn init() -> InputEngine {
         let dualshock = controller::get_dualshock().unwrap();
+        let _ = controller::enable_full_bt_reports(&dualshock);
         let controller_stream = controller::start_controller_thread(dualshock);
         let (sender, _) = tokio::sync::broadcast::channel(32);
        
