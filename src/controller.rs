@@ -1,7 +1,7 @@
 use hidapi::{HidApi, HidDevice};
 use std::f32::consts::PI;
 use std::sync::{mpsc};
-use std::thread;
+use std::{range, thread};
 
 pub fn get_dualshock() -> Result<HidDevice, String> {
     let api = HidApi::new().expect("Failed to initialize HidApi");
@@ -34,8 +34,24 @@ pub fn enable_full_bt_reports(device: &hidapi::HidDevice) -> hidapi::HidResult<(
 
 pub fn _print_data(data : &[u8; 78]) {
     // Print each byte with its index so you can identify offsets
-    for (i, byte) in data[..78].iter().enumerate() {
-        print!("[{}]:{:#04x} ", i, byte);
+    for i in 0..data[35] {
+        let start : usize = 36 + (i*9) as usize;
+        if data[start+1]&(1<<7) == 0 {
+            let x : u16 = (data[start+2] as u16) | (((data[start+3] as u16) & 7_u16) << 8_u16);
+            let y : u16 = ((data[start+4] as u16) << 8_u16) | ((data[start+3] as u16) & (15_u16<<4));
+            // print!("{x}")
+            print!("finger {}: ({x}, {y})\n", data[start+1])
+        }
+        if data[start+5]&(1<<7) == 0 {
+            let x : u16 = (data[start+6] as u16) | (((data[start+7] as u16) & 7_u16) << 8_u16);
+            let y : u16 = ((data[start+8] as u16) << 8_u16) | ((data[start+7] as u16) & (15_u16<<4));
+            // print!("{x}")
+            print!("finger {}: ({x}, {y})\n", data[start+5])
+        }
+        println!()
+        // for (i, byte) in data[start..start+9].iter().enumerate() {
+        //     print!("[{}]:{:#04x} ", i, byte);
+        // }
     }
     println!();
 }
@@ -131,7 +147,7 @@ pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4S
         let mut buf = [0u8; 78];
         loop {
             if let Ok(_) = device.read(&mut buf) {
-                // _print_data(&buf);
+                _print_data(&buf);
                 let parsed = parse_report(&buf);
                 if let Some(data) = parsed {
                     // println!("{data:?}");
