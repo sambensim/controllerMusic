@@ -76,6 +76,10 @@ impl ChordEngine {
         ALL_NOTES[self.key as usize].to_string()
     }
 
+    pub fn get_key_value(&self) -> u8 {
+        self.key
+    }
+
     pub fn set_octave(&mut self, octave: u8) {
         self.octave = octave;
     }
@@ -121,11 +125,10 @@ impl ChordEngine {
             .collect()
     }
 
-    pub fn get_chord_name(&self, chord_index: i32, chord_mode: i32) -> String {
-        let octave_shift = 12 * (chord_index / 7) as u8;
+    pub fn get_chord_name(key : u8, chord_index: i32, chord_mode: i32) -> String {
         let note = ChordEngine::note_add(
-            self.key+12*self.octave,
-            Self::key_note_all_note_index((chord_index % 7) as usize) + octave_shift,
+            key,
+            Self::key_note_all_note_index((chord_index % 7) as usize),
         );
         let mode = chord_mode_dict().get(&chord_mode).expect("unknown chord mode");
         let chord_mode_str = mode[(chord_index % 7) as usize];

@@ -51,7 +51,7 @@ impl DisplayEngine {
 
     fn get_selected_chord(&self, full_state : &DS4State) -> String {
         if controller::get_left_stick_section(full_state) == -1  { "None".to_string() } else {
-            self.chord_engine.get_chord_name(controller::get_left_stick_section(full_state) as i32, controller::get_right_stick_section(full_state) as i32)
+            chord_engine::ChordEngine::get_chord_name(self.chord_engine.get_key_value(), controller::get_left_stick_section(full_state) as i32, controller::get_right_stick_section(full_state) as i32)
         }
     }
 
