@@ -56,7 +56,7 @@ fn set_defaults(silent : bool) -> (cpal::Host, Device, cpal::SupportedStreamConf
     return (host, input_device, input_config, output_device, output_config)
 }
 
-fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Send + 'static) -> impl FnMut() -> f32 + Send + 'static {
+fn sound_main(sample_rate: u32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Send + 'static) -> impl FnMut() -> f32 + Send + 'static {
     use ringbuf::{HeapRb, traits::{Split, Producer}};
     let mut time = 0.0f32;
     let mut absolute_time = 0.0f32;  // never wraps
@@ -65,9 +65,9 @@ fn sound_main(sample_rate: f32, mut audio: impl FnMut(f32, f32, f32) -> f32 + Se
     let (mut producer, _) = rb.split();
 
     let audio_closure = move || {
-        time = (time + 1.0) % sample_rate;
+        time = (time + 1.0) % sample_rate as f32;
         absolute_time += 1.0;
-        let value = audio(time, absolute_time, sample_rate);
+        let value = audio(time, absolute_time, sample_rate as f32);
         let _ = producer.try_push(value); // drop samples if visual side is behind
         value
     };
@@ -115,7 +115,7 @@ where
 
 pub fn do_sound(controller_channel : tokio::sync::broadcast::Receiver<InputEvent>) -> Receiver<f32> {
     let (_host, _input_device, _input_config, output_device, output_config) = set_defaults(true);
-    let sample_rate = output_config.sample_rate() as f32;
+    let sample_rate = output_config.sample_rate();
     
     let (sender, receiver) = mpsc::channel();
     let sound_engine = SoundEngine::init(controller_channel, sender, sample_rate);

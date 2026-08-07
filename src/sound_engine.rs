@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent};
+use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent, synths};
 use std::time::Instant;
 
 pub struct NoteInfo {
@@ -11,13 +11,15 @@ pub struct NoteInfo {
 pub struct Voice {
     pub note_info : Option<NoteInfo>,
     pub phase : f32,
+    pub env : synths::Adsr,
 }
 
 impl Voice {
-    fn new() -> Self {
+    fn new(sample_rate : u32) -> Self {
         Voice {
             note_info : None,
             phase : 0.0,
+            env : synths::Adsr::new(sample_rate, 1.0, 1.0, 0.5, 1.0),
         }
     }
 }
@@ -32,13 +34,13 @@ pub struct SoundEngine {
 }
 
 impl SoundEngine {
-    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<InputEvent>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: f32) -> Self {
+    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<InputEvent>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: u32) -> Self {
         SoundEngine {
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
             freq_send : frequency_send_channel,
-            time_step : 1.0 / sample_rate,
-            voices : std::array::from_fn(|_| Voice::new()),
+            time_step : 1.0 / sample_rate as f32,
+            voices : std::array::from_fn(|_| Voice::new(sample_rate)),
             current_chord : Vec::new(),
         }
     }
@@ -82,6 +84,7 @@ impl SoundEngine {
                 if let Some(ni) = &mut v.note_info {
                     if ni.note == n && ni.release.is_none() {
                         ni.release = Some(Instant::now());
+                        v.env.release();
                         break;
                     }
                 }
@@ -96,6 +99,7 @@ impl SoundEngine {
                 if let Some(ni) = &mut v.note_info {
                     if ni.release.is_some() {
                         ni.release = None;
+                        v.env.trigger();
                         ni.note = *n;
                         assigned = true;
                         break;
