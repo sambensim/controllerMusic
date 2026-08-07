@@ -3,45 +3,49 @@ use std::collections::HashMap;
 const ALL_NOTES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAJOR_INTERVALS: [u8; 7] = [0, 2, 4, 5, 7, 9, 11];
 
-fn chord_type_dict() -> HashMap<&'static str, Vec<u8>> {
-    HashMap::from([
-        ("maj",     vec![0, 4, 7]),
-        ("min",     vec![0, 3, 7]),
-        ("dim",     vec![0, 3, 6]),
-        ("dom7",    vec![0, 4, 7, 10]),
-        ("maj7",    vec![0, 4, 7, 11]),
-        ("min7",    vec![0, 3, 7, 10]),
-        ("min7b5",  vec![0, 3, 6, 10]),
-        ("majadd9", vec![0, 4, 7, 14]),
-        ("minadd9", vec![0, 3, 7, 14]),
-        ("dimadd9", vec![0, 3, 6, 14]),
-        ("sus4",    vec![0, 5, 7]),
-        ("maj6",    vec![0, 4, 7, 9]),
-        ("sus2",    vec![0, 2, 7]),
-        ("aug",     vec![1, 4, 8]),
-    ])
+fn chord_type_dict() -> &'static HashMap<&'static str, Vec<u8>> {
+    static DICT: std::sync::OnceLock<HashMap<&'static str, Vec<u8>>> = std::sync::OnceLock::new();
+    DICT.get_or_init(|| {
+        HashMap::from([
+            ("maj",     vec![0, 4, 7]),
+            ("min",     vec![0, 3, 7]),
+            ("dim",     vec![0, 3, 6]),
+            ("dom7",    vec![0, 4, 7, 10]),
+            ("maj7",    vec![0, 4, 7, 11]),
+            ("min7",    vec![0, 3, 7, 10]),
+            ("min7b5",  vec![0, 3, 6, 10]),
+            ("majadd9", vec![0, 4, 7, 14]),
+            ("minadd9", vec![0, 3, 7, 14]),
+            ("dimadd9", vec![0, 3, 6, 14]),
+            ("sus4",    vec![0, 5, 7]),
+            ("maj6",    vec![0, 4, 7, 9]),
+            ("sus2",    vec![0, 2, 7]),
+            ("aug",     vec![1, 4, 8]),
+        ])
+    })
 }
 
-fn chord_mode_dict() -> HashMap<i32, Vec<&'static str>> {
-    HashMap::from([
-        (-1, vec!["maj",     "min",     "min",     "maj",     "maj",     "min",     "dim"    ]),
-        ( 6, vec!["min",     "maj",     "maj",     "min",     "min",     "maj",     "min"    ]),
-        ( 7, vec!["dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7"   ]),
-        ( 0, vec!["min7",    "maj7",    "maj7",    "min7",    "min7",    "maj7",    "min7b5" ]),
-        ( 1, vec!["majadd9", "minadd9", "minadd9", "majadd9", "majadd9", "minadd9", "dimadd9"]),
-        ( 2, vec!["sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4"   ]),
-        ( 3, vec!["maj6",    "sus2",    "sus2",    "maj6",    "maj6",    "sus2",    "sus2"   ]),
-        ( 4, vec!["dim",     "dim",     "dim",     "dim",     "dim",     "dim",     "dim"    ]),
-        ( 5, vec!["aug",     "aug",     "aug",     "aug",     "aug",     "aug",     "aug"    ]),
-    ])
+fn chord_mode_dict() -> &'static HashMap<i32, Vec<&'static str>> {
+    static DICT: std::sync::OnceLock<HashMap<i32, Vec<&'static str>>> = std::sync::OnceLock::new();
+    DICT.get_or_init(|| {
+        HashMap::from([
+            (-1, vec!["maj",     "min",     "min",     "maj",     "maj",     "min",     "dim"    ]),
+            ( 6, vec!["min",     "maj",     "maj",     "min",     "min",     "maj",     "min"    ]),
+            ( 7, vec!["dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7"   ]),
+            ( 0, vec!["min7",    "maj7",    "maj7",    "min7",    "min7",    "maj7",    "min7b5" ]),
+            ( 1, vec!["majadd9", "minadd9", "minadd9", "majadd9", "majadd9", "minadd9", "dimadd9"]),
+            ( 2, vec!["sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4"   ]),
+            ( 3, vec!["maj6",    "sus2",    "sus2",    "maj6",    "maj6",    "sus2",    "sus2"   ]),
+            ( 4, vec!["dim",     "dim",     "dim",     "dim",     "dim",     "dim",     "dim"    ]),
+            ( 5, vec!["aug",     "aug",     "aug",     "aug",     "aug",     "aug",     "aug"    ]),
+        ])
+    })
 }
 
 pub struct ChordEngine {
     key: u8,
     octave: u8,
     key_notes: Vec<String>,
-    chord_types: HashMap<&'static str, Vec<u8>>,
-    chord_modes: HashMap<i32, Vec<&'static str>>,
 }
 
 impl ChordEngine {
@@ -50,8 +54,6 @@ impl ChordEngine {
             key,
             octave,
             key_notes: Vec::new(),
-            chord_types: chord_type_dict(),
-            chord_modes: chord_mode_dict(),
         };
         engine.rebuild_key_notes();
         engine
@@ -97,14 +99,8 @@ impl ChordEngine {
             .collect();
     }
 
-    fn note_add(&self, note: u8, diff: u8) -> String {
-        let mut ni = note + diff;
-        let mut bo = self.octave;
-        while ni >= 12 {
-            ni -= 12;
-            bo += 1;
-        }
-        format!("{}{}", ALL_NOTES[ni as usize], bo)
+    fn note_add(value: u8, diff: u8) -> String {
+        ChordEngine::value_to_note(value + diff).unwrap()
     }
 
     fn key_note_all_note_index(key_note_index: usize) -> u8 {
@@ -112,26 +108,26 @@ impl ChordEngine {
     }
 
     pub fn get_chord_notes(&self, chord_index: i32, chord_mode: i32) -> Vec<String> {
-        let mode = self.chord_modes.get(&chord_mode).expect("unknown chord mode");
+        let mode = chord_mode_dict().get(&chord_mode).expect("unknown chord mode");
         let chord_mode_str = mode[(chord_index % 7) as usize];
         let octave_shift = 12 * (chord_index / 7) as u8;
         let root_offset = Self::key_note_all_note_index((chord_index % 7) as usize) + octave_shift;
 
-        self.chord_types
+        chord_type_dict()
             .get(chord_mode_str)
             .expect("unknown chord type")
             .iter()
-            .map(|&offset| self.note_add(self.key, root_offset + offset))
+            .map(|&offset| ChordEngine::note_add(self.key+12*self.octave, root_offset + offset))
             .collect()
     }
 
     pub fn get_chord_name(&self, chord_index: i32, chord_mode: i32) -> String {
         let octave_shift = 12 * (chord_index / 7) as u8;
-        let note = self.note_add(
-            self.key,
+        let note = ChordEngine::note_add(
+            self.key+12*self.octave,
             Self::key_note_all_note_index((chord_index % 7) as usize) + octave_shift,
         );
-        let mode = self.chord_modes.get(&chord_mode).expect("unknown chord mode");
+        let mode = chord_mode_dict().get(&chord_mode).expect("unknown chord mode");
         let chord_mode_str = mode[(chord_index % 7) as usize];
         format!("{}{}", note, chord_mode_str)
     }
@@ -142,6 +138,17 @@ impl ChordEngine {
 
     pub fn note_to_freq(note: &str) -> Result<f32, String> {
         Ok(Self::value_to_freq(Self::note_to_value(note)?))
+    }
+
+    pub fn value_to_note(value: u8) -> Result<String, String> {
+        let value = value as i32;
+        let octave = value / 12;
+        let note_index = (value % 12) as usize;
+        let name = ALL_NOTES[note_index];
+        if octave > 10 {
+            return Err("bad octave".to_string());
+        }
+        Ok(format!("{name}{octave}"))
     }
 
     pub fn note_to_value(note: &str) -> Result<u8, String> {
