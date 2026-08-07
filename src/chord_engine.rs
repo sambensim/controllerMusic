@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 
 const ALL_NOTES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAJOR_INTERVALS: [u8; 7] = [0, 2, 4, 5, 7, 9, 11];
 
-fn chord_type_dict() -> &'static HashMap<&'static str, Vec<u8>> {
+pub fn chord_type_dict() -> &'static HashMap<&'static str, Vec<u8>> {
     static DICT: std::sync::OnceLock<HashMap<&'static str, Vec<u8>>> = std::sync::OnceLock::new();
     DICT.get_or_init(|| {
         HashMap::from([
@@ -25,7 +25,7 @@ fn chord_type_dict() -> &'static HashMap<&'static str, Vec<u8>> {
     })
 }
 
-fn chord_mode_dict() -> &'static HashMap<i32, Vec<&'static str>> {
+pub fn chord_mode_dict() -> &'static HashMap<i32, Vec<&'static str>> {
     static DICT: std::sync::OnceLock<HashMap<i32, Vec<&'static str>>> = std::sync::OnceLock::new();
     DICT.get_or_init(|| {
         HashMap::from([
@@ -50,18 +50,16 @@ pub struct ChordEngine {
 
 impl ChordEngine {
     pub fn new(key: u8, octave: u8) -> Self {
-        let mut engine = ChordEngine {
+        ChordEngine {
             key,
             octave,
-            key_notes: Vec::new(),
-        };
-        engine.rebuild_key_notes();
-        engine
+            key_notes: ChordEngine::get_key_notes(key),
+        }
     }
 
     pub fn set_key(&mut self, key: u8) {
         self.key = key;
-        self.rebuild_key_notes();
+        self.key_notes = ChordEngine::get_key_notes(key);
     }
 
     pub fn decrement_key(&mut self) {
@@ -96,11 +94,11 @@ impl ChordEngine {
         self.octave
     }
 
-    fn rebuild_key_notes(&mut self) {
-        self.key_notes = MAJOR_INTERVALS
+    pub fn get_key_notes(key : u8) -> Vec<String> {
+        return MAJOR_INTERVALS
             .iter()
-            .map(|&offset| ALL_NOTES[((self.key + offset) % 12) as usize].to_string())
-            .collect();
+            .map(|&offset| ALL_NOTES[((key + offset) % 12) as usize].to_string())
+            .collect()
     }
 
     fn note_add(value: u8, diff: u8) -> String {

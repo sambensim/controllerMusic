@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, iter::StepBy, sync::mpsc::Receiver};
 
-use crate::{chord_engine, controller::{self, DS4State}, input_engine::InputEvent};
+use crate::{chord_engine::{self, ChordEngine}, controller::{self, DS4State}, input_engine::InputEvent};
 
 pub struct DisplayEngine {
     controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
@@ -71,6 +71,10 @@ impl DisplayEngine {
 
     pub fn get_octave(&self) -> u8 {
         self.chord_engine.get_octave()
+    }
+
+    pub fn get_key_notes(&self) -> Vec<String> {
+        ChordEngine::get_key_notes(self.chord_engine.get_key_value())
     }
 
     pub const SAMPLE_CAPACITY : usize = 1000;
