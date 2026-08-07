@@ -64,14 +64,12 @@ impl Adsr {
                 self.level = (self.level + self.atime_secs / self.sample_rate as f32).min(1.0);
                 if self.level >= 1.0 {
                     self.phase = AdsrPhase::Decay;
-                    println!("hi")
                 }
             },
             AdsrPhase::Decay => {
                 self.level = (self.level - self.dtime_secs / self.sample_rate as f32).max(self.slevel);
                 if self.level <= self.slevel {
                     self.phase = AdsrPhase::Sustain;
-                    println!("bye")
                 }
             },
             AdsrPhase::Sustain => {
