@@ -8,6 +8,7 @@ mod chord_engine;
 mod sound_engine;
 mod display_engine;
 mod input_engine;
+mod adsr;
 
 fn main() {
     let input_engine = input_engine::InputEngine::init();

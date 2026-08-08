@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent, synths::{self, Oscillator}};
+use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent, synths::{self, Oscillator, Saw}};
 use std::time::Instant;
 
 pub struct NoteInfo {
@@ -11,15 +11,15 @@ pub struct NoteInfo {
 pub struct Voice <T> where T: synths::Oscillator {
     pub note_info : Option<NoteInfo>,
     pub osc : T,
-    pub env : synths::Adsr,
+    pub env : crate::adsr::Adsr,
 }
 
-impl<T> Voice<T> where T: synths::Oscillator {
+impl<T> Voice <T> where T: synths::Oscillator {
     fn new(sample_rate : u32) -> Self {
         Voice {
             note_info : None,
             osc : T::new(sample_rate),
-            env : synths::Adsr::new(sample_rate, 1.0, 3.0, 0.6, 1.0),
+            env : crate::adsr::Adsr::new(sample_rate, 1.0, 3.0, 0.6, 1.0),
         }
     }
 
@@ -36,8 +36,7 @@ pub struct SoundEngine {
     controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
     chord_engine : chord_engine::ChordEngine,
     freq_send : mpsc::Sender<f32>,
-    pub time_step : f32,
-    pub voices : [Voice<synths::Fm>; SoundEngine::MAX_NOTES],
+    pub voices : [Voice<synths::Fm<Saw>>; SoundEngine::MAX_NOTES],
     pub current_chord : Vec<u8>
 }
 
@@ -47,7 +46,6 @@ impl SoundEngine {
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
             freq_send : frequency_send_channel,
-            time_step : 1.0 / sample_rate as f32,
             voices : std::array::from_fn(|_| Voice::new(sample_rate)),
             current_chord : Vec::new(),
         }
@@ -140,5 +138,5 @@ impl SoundEngine {
         freq
     }
 
-    pub const MAX_NOTES : usize = 4;
+    pub const MAX_NOTES : usize = 8;
 }
