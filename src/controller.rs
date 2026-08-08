@@ -191,9 +191,9 @@ pub fn button_events(prev: u16, current: u16) -> impl Iterator<Item = InputEvent
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum  InputEvent {
+pub enum InputEvent {
     Directional(DirectionalType, i8),
-    Trigger(TriggerType, f32),
+    Continuous(TriggerType, f32),
     Button(ButtonType, bool),
     None,
 }
@@ -238,7 +238,11 @@ pub fn get_events(prev_state : DS4State, current_state : DS4State) -> impl Itera
         .then(|| InputEvent::Directional(DirectionalType::Right, current_state.dpad))
         .into_iter();
     let buttons = button_events(prev_state.packed_button_states, current_state.packed_button_states);
+    let left_trigger = (prev_state.l_trigger != current_state.l_trigger)
+        .then(|| InputEvent::Continuous(TriggerType::Left, current_state.l_trigger))
+        .into_iter();
     //TODO - handle continuous input events (like trigger)
     left.chain(right).chain(dpad)
         .chain(buttons)
+        .chain(left_trigger)
 }

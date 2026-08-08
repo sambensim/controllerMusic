@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent, synths};
+use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent, synths::{self, Oscillator}};
 use std::time::Instant;
 
 pub struct NoteInfo {
@@ -8,19 +8,27 @@ pub struct NoteInfo {
     pub release : Option<Instant>,
 }
 
-pub struct Voice {
+pub struct Voice <T> where T: synths::Oscillator {
     pub note_info : Option<NoteInfo>,
-    pub phase : f32,
+    pub osc : T,
     pub env : synths::Adsr,
 }
 
-impl Voice {
+impl<T> Voice<T> where T: synths::Oscillator {
     fn new(sample_rate : u32) -> Self {
         Voice {
             note_info : None,
-            phase : 0.0,
-            env : synths::Adsr::new(sample_rate, 1.0, 1.0, 0.5, 1.0),
+            osc : T::new(sample_rate),
+            env : synths::Adsr::new(sample_rate, 1.0, 3.0, 0.6, 1.0),
         }
+    }
+
+    pub fn step(&mut self) -> f32 {
+        let Some(note_info) = &self.note_info else {
+            return 0.0;
+        };
+        self.env.step();
+        self.osc.step(ChordEngine::value_to_freq(note_info.note))
     }
 }
 
@@ -29,7 +37,7 @@ pub struct SoundEngine {
     chord_engine : chord_engine::ChordEngine,
     freq_send : mpsc::Sender<f32>,
     pub time_step : f32,
-    pub voices : [Voice; SoundEngine::MAX_NOTES],
+    pub voices : [Voice<synths::Fm>; SoundEngine::MAX_NOTES],
     pub current_chord : Vec<u8>
 }
 
@@ -43,6 +51,7 @@ impl SoundEngine {
             voices : std::array::from_fn(|_| Voice::new(sample_rate)),
             current_chord : Vec::new(),
         }
+
     }
 
     pub fn handle_input(&mut self) {
@@ -73,6 +82,9 @@ impl SoundEngine {
                 controller::InputEvent::Button(controller::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
                 controller::InputEvent::Button(controller::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                 _ => ()
+            }
+            for v in &mut self.voices {
+                v.osc.handle_input(event.event_info);
             }
             possible_event = self.controller_channel.try_recv();
         };
