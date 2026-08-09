@@ -32,8 +32,8 @@ impl IntermediateControllerState {
         let dpad = (self.dpad != new_state.dpad)
             .then(|| InputEvent::Directional(DirectionalType::Dpad, new_state.dpad))
             .into_iter();
-        let touchpad = (self.quantize_directional(DirectionalType::Touchpad, 5) != new_state.quantize_directional(DirectionalType::Touchpad, 5))
-            .then(|| InputEvent::Directional(DirectionalType::Touchpad, new_state.quantize_directional(DirectionalType::Touchpad, 5)))
+        let touchpad = (self.quantize_directional(DirectionalType::Touchpad, 14) != new_state.quantize_directional(DirectionalType::Touchpad, 14))
+            .then(|| InputEvent::Directional(DirectionalType::Touchpad, new_state.quantize_directional(DirectionalType::Touchpad, 14)))
             .into_iter();
         let buttons = self.button_events(new_state);
         let left_trigger = (self.l_trigger != new_state.l_trigger)

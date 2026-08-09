@@ -101,7 +101,7 @@ impl ChordEngine {
             .collect()
     }
 
-    fn note_add(value: u8, diff: u8) -> String {
+    pub fn note_add(value: u8, diff: u8) -> String {
         ChordEngine::value_to_note(value + diff).unwrap()
     }
 
