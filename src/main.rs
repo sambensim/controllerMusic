@@ -9,7 +9,7 @@ mod sound_engine;
 mod display_engine;
 mod input_engine;
 mod adsr;
-mod controller_trait;
+mod controller;
 mod intermediate_controller_state;
 
 fn main() {

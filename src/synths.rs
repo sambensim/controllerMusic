@@ -23,7 +23,7 @@ pub fn get_process(mut sound_engine : SoundEngine) -> impl FnMut(f32, f32, f32) 
 pub trait Oscillator {
     fn new(sample_rate : u32) -> Self;
     fn step(&mut self, freq : f32) -> f32;
-    fn handle_input(&mut self, event : crate::controller_trait::InputEvent);
+    fn handle_input(&mut self, event : crate::controller::InputEvent);
     fn get_next_phase(&self, phase : f32, time_step : f32, freq : f32) -> f32 {
         (phase + freq * time_step) % 1.0
     }
@@ -38,7 +38,7 @@ impl Oscillator for None {
     fn step(&mut self, _freq : f32) -> f32 {
         0.0
     }
-    fn handle_input(&mut self, _event : crate::controller_trait::InputEvent) {
+    fn handle_input(&mut self, _event : crate::controller::InputEvent) {
         ()
     }
 }
@@ -61,7 +61,7 @@ impl Oscillator for Saw {
         self.phase*2.0 - 1.0
     }
 
-    fn handle_input(&mut self, _event : crate::controller_trait::InputEvent) {
+    fn handle_input(&mut self, _event : crate::controller::InputEvent) {
         
     }
 }
@@ -84,7 +84,7 @@ impl Oscillator for Sin {
         (self.phase*2.0*PI).sin()
     }
 
-    fn handle_input(&mut self, _event : crate::controller_trait::InputEvent) {}
+    fn handle_input(&mut self, _event : crate::controller::InputEvent) {}
 }
 
 pub struct Fm <T> where T: Oscillator {
@@ -123,10 +123,10 @@ impl <T>Oscillator for Fm <T> where T: Oscillator{
         (self.carrier.step(freq) + modulator_sin).sin()
     }
 
-   fn handle_input(&mut self, event : crate::controller_trait::InputEvent) {
+   fn handle_input(&mut self, event : crate::controller::InputEvent) {
         match event {
-            crate::controller_trait::InputEvent::Continuous(crate::controller_trait::ContinuousType::LeftTrigger, v) => self.set(self.ratio, v * 4.0),
-            crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RBumper, true) => {
+            crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(self.ratio, v * 4.0),
+            crate::controller::InputEvent::Button(crate::controller::ButtonType::RBumper, true) => {
                 let n = [0.25, 0.5, 1.0][fastrand::usize(1..3)];
                 println!("{n}");
                 self.set( n, self.modulation_amplitude)
@@ -169,7 +169,7 @@ impl<T> Oscillator for GlideSin <T> where T: Oscillator{
         self.osc.step(self.freq)
     }
 
-   fn handle_input(&mut self, _event : crate::controller_trait::InputEvent) {
+   fn handle_input(&mut self, _event : crate::controller::InputEvent) {
         ();
     }
 }
@@ -197,9 +197,9 @@ impl<T> Oscillator for BitCrush <T> where T: Oscillator{
         ((self.osc.step(freq) * self.quantize_steps as f32) as u32) as f32 / self.quantize_steps as f32
     }
 
-   fn handle_input(&mut self, event : crate::controller_trait::InputEvent) {
+   fn handle_input(&mut self, event : crate::controller::InputEvent) {
         match event {
-            crate::controller_trait::InputEvent::Continuous(crate::controller_trait::ContinuousType::LeftTrigger, v) => self.set(66 - (v * 64.0) as u32),
+            crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(66 - (v * 64.0) as u32),
             _ => ()
         };
    }

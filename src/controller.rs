@@ -36,6 +36,7 @@ buttons!(
     Square, Cross, Circle, Triangle,
     LBumper, RBumper, LTriggerBtn, RTriggerBtn,
     Share, Options, LStickBtn, RStickBtn,
+    PS, TouchpadClick, Touch
 );
 
 pub trait Controller: Default + Copy + Clone + Send + 'static{

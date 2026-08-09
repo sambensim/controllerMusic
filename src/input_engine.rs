@@ -5,7 +5,7 @@ use crate::intermediate_controller_state::IntermediateControllerState;
 #[derive(Clone)]
 pub struct FullInputEvent {
     pub full_state : crate::intermediate_controller_state::IntermediateControllerState,
-    pub event_info : crate::controller_trait::InputEvent,
+    pub event_info : crate::controller::InputEvent,
 }
 
 
@@ -16,7 +16,7 @@ pub struct InputEngine {
 }
 
 impl InputEngine {
-    pub fn init<T>() -> InputEngine where T: crate::controller_trait::Controller {
+    pub fn init<T>() -> InputEngine where T: crate::controller::Controller {
         let device = T::get_controller().unwrap();
         let controller_stream = crate::intermediate_controller_state::start_controller_thread::<T>(device);
         let (sender, _) = tokio::sync::broadcast::channel(32);

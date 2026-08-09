@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller_trait::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, synths::{self, Oscillator, Saw}};
+use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, synths::{self, Oscillator, Saw}};
 use std::time::Instant;
 
 pub struct NoteInfo {

@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 use std::sync::{mpsc};
 use std::thread;
-use crate::controller_trait::{BUTTONS, ContinuousType, Controller, DirectionalType, InputEvent};
+use crate::controller::{BUTTONS, ContinuousType, Controller, DirectionalType, InputEvent};
 
 #[derive(Copy, Clone, Debug)]
 pub struct IntermediateControllerState {
@@ -123,7 +123,7 @@ const THRESHOLD : f32 = 0.4;
 fn get_vec_section(x : f32, y : f32, sections : u8) -> i8 {
     let magnitude = (x * x + y * y).sqrt();
     if magnitude < THRESHOLD { return -1 } ;
-    let angle : f32 = y.atan2(x);
+    let angle : f32 = y.atan2(x) + (PI / (sections) as f32);
     let normalized_angle : f32 = if angle < 0.0 { angle + 2.0 * PI } else { angle };
     ((normalized_angle / ((2.0 * PI) / sections as f32)) as u8 % sections) as i8
 }

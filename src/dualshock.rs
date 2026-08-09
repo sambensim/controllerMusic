@@ -18,7 +18,7 @@ pub struct DS4 {}
 //     pub dpad: i8,
 // }
 
-impl crate::controller_trait::Controller for DS4 {
+impl crate::controller::Controller for DS4 {
     fn get_controller() -> Result<HidDevice, String> {
         let api = HidApi::new().expect("Failed to initialize HidApi");
         let controller = api.device_list().find(|device| {
@@ -38,6 +38,7 @@ impl crate::controller_trait::Controller for DS4 {
     }
 
     fn parse_report(buf: &[u8]) -> Option<IntermediateControllerState> {
+        // _print_data(buf);
         // Normalize a raw 0-255 byte to -1.0 to 1.0
         let axis = |byte: u8| -> f32 {
             (byte as f32 - 128.0) / 128.0
@@ -50,7 +51,6 @@ impl crate::controller_trait::Controller for DS4 {
             if (buf[1] >> 7) & 1 == 0 {
                 return None; //audio only output (microphone?)
             }
-            // println!("{}", ((buf[38] as u16) | (((buf[39] as u16) & 7_u16) << 8_u16)) as f32 / 2048.0);
             return Some(IntermediateControllerState {
                 left_stick_x:  axis(buf[3]),
                 left_stick_y:  axis(buf[4]),
@@ -59,7 +59,7 @@ impl crate::controller_trait::Controller for DS4 {
                 l_trigger: trigger(buf[10]),
                 r_trigger: trigger(buf[11]),
                 // High nibble of byte 7 + all of byte 8
-                packed_button_states :  (buf[8] as u16) << 4 | ((buf[7] & 0xF0) as u16) >> 4,
+                packed_button_states :   (if buf[37]&(1<<7) == 0 {1} else {0}) << 14 | ((buf[9]&3) as u16) << 12 | (buf[8] as u16) << 4 | ((buf[7] & 0xF0) as u16) >> 4,
                 // Low nibble of byte 7
                 dpad: buf[7] as i8 & 0x0F,
                 touchpad_x : ((buf[38] as u16) | (((buf[39] as u16) & 7_u16) << 8_u16)) as f32 / 2048.0,
@@ -100,26 +100,28 @@ impl DS4 {
 
 pub fn _print_data(data : &[u8]) {
     // Print each byte with its index so you can identify offsets
-    for i in 0..data[35] {
-        let start : usize = 36 + (i*9) as usize;
-        if data[start+1]&(1<<7) == 0 {
-            let x : u16 = (data[start+2] as u16) | (((data[start+3] as u16) & 7_u16) << 8_u16);
-            let y : u16 = ((data[start+4] as u16) << 8_u16) | ((data[start+3] as u16) & (15_u16<<4));
-            // print!("{x}")
-            print!("finger {}: ({x}, {y})\n", data[start+1])
-        }
-        if data[start+5]&(1<<7) == 0 {
-            let x : u16 = (data[start+6] as u16) | (((data[start+7] as u16) & 7_u16) << 8_u16);
-            let y : u16 = ((data[start+8] as u16) << 8_u16) | ((data[start+7] as u16) & (15_u16<<4));
-            // print!("{x}")
-            // print!("finger {}: ({x}, {y})\n", data[start+5])
-        }
+    // for i in 0..data[35] {
+    //     let start : usize = 36 + (i*9) as usize;
+    //     if data[start+1]&(1<<7) == 0 {
+    //         let x : u16 = (data[start+2] as u16) | (((data[start+3] as u16) & 7_u16) << 8_u16);
+    //         let y : u16 = ((data[start+4] as u16) << 8_u16) | ((data[start+3] as u16) & (15_u16<<4));
+    //         // print!("{x}")
+    //         print!("finger {}: ({x}, {y})\n", data[start+1])
+    //     }
+    //     if data[start+5]&(1<<7) == 0 {
+    //         let x : u16 = (data[start+6] as u16) | (((data[start+7] as u16) & 7_u16) << 8_u16);
+    //         let y : u16 = ((data[start+8] as u16) << 8_u16) | ((data[start+7] as u16) & (15_u16<<4));
+    //         // print!("{x}")
+    //         // print!("finger {}: ({x}, {y})\n", data[start+5])
+    //     }
         // println!()
-        // for (i, byte) in data[start..start+9].iter().enumerate() {
-        //     print!("[{}]:{:#04x} ", i, byte);
-        // }
-    }
-    println!();
+    println!("{}", data[9]&(1<<1))
+    // for (i, byte) in data.iter().enumerate() {
+    //     print!("[{}]:{:#04x} ", i, byte);
+    // }
+    // println!();
+    // println!();
+    // println!();
 }
 
 /*
@@ -134,4 +136,6 @@ byte 8: (first four bits): [share, options, l-stick down, r-stick down]
 byte 8: (last four bits): [l-bumper, r-bumper, l-trigger down, r-trigger down]
 l-trigger: byte 10: none == 00, full == ff
 r-trigger: byte 11: none == 00, full == ff
+ps button: byte 9 bit 0
+touchpad button: byte 9 bit 1
 */

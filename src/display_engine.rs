@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine::{self, ChordEngine}, controller_trait::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state};
+use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state};
 
 pub struct DisplayEngine {
     controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>,
@@ -31,6 +31,7 @@ impl DisplayEngine {
                 InputEvent::Directional(DirectionalType::Touchpad, v) => {
                     println!("{v}")
                 }
+                // InputEvent::Button(ButtonType::Touch, true) => self.play
                 InputEvent::Button(ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
                 InputEvent::Button(ButtonType::Share, true) => self.chord_engine.increment_key(),
                 InputEvent::Button(ButtonType::Options, true) => self.chord_engine.increment_octave(),
@@ -44,7 +45,7 @@ impl DisplayEngine {
                 },
                 InputEvent::Button(ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
                 InputEvent::Button(ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
-                _ => ()
+                _ => ()//println!("{:?}", event.event_info)
             }
             possible_event = self.controller_channel.try_recv();
             self.selected_chord = self.get_selected_chord(&event.full_state);
