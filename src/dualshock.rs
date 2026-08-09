@@ -50,6 +50,7 @@ impl crate::controller_trait::Controller for DS4 {
             if (buf[1] >> 7) & 1 == 0 {
                 return None; //audio only output (microphone?)
             }
+            // println!("{}", ((buf[38] as u16) | (((buf[39] as u16) & 7_u16) << 8_u16)) as f32 / 2048.0);
             return Some(IntermediateControllerState {
                 left_stick_x:  axis(buf[3]),
                 left_stick_y:  axis(buf[4]),
@@ -61,8 +62,8 @@ impl crate::controller_trait::Controller for DS4 {
                 packed_button_states :  (buf[8] as u16) << 4 | ((buf[7] & 0xF0) as u16) >> 4,
                 // Low nibble of byte 7
                 dpad: buf[7] as i8 & 0x0F,
-                touchpad_x : 0.0,
-                touchpad_y : 0.0,
+                touchpad_x : ((buf[38] as u16) | (((buf[39] as u16) & 7_u16) << 8_u16)) as f32 / 2048.0,
+                touchpad_y : (((buf[40] as u16) << 8_u16) | ((buf[39] as u16) & (15_u16<<4))) as f32 / 16384.0,
             })
         } else if buf[0] == 0x01 {
             return Some(IntermediateControllerState {
@@ -76,8 +77,8 @@ impl crate::controller_trait::Controller for DS4 {
                 packed_button_states :  (buf[6] as u16) << 4 | ((buf[5] & 0xF0) as u16) >> 4,
                 // Low nibble of byte 7
                 dpad: buf[5] as i8 & 0x0F,
-                touchpad_x : 0.0,
-                touchpad_y : 0.0,
+                touchpad_x : -1.0,
+                touchpad_y : -1.0,
             })
         }
         panic!("unknown mapping");
@@ -97,29 +98,29 @@ impl DS4 {
     }
 }
 
-// pub fn _print_data(data : &[u8; 78]) {
-//     // Print each byte with its index so you can identify offsets
-//     for i in 0..data[35] {
-//         let start : usize = 36 + (i*9) as usize;
-//         if data[start+1]&(1<<7) == 0 {
-//             let x : u16 = (data[start+2] as u16) | (((data[start+3] as u16) & 7_u16) << 8_u16);
-//             let y : u16 = ((data[start+4] as u16) << 8_u16) | ((data[start+3] as u16) & (15_u16<<4));
-//             // print!("{x}")
-//             // print!("finger {}: ({x}, {y})\n", data[start+1])
-//         }
-//         if data[start+5]&(1<<7) == 0 {
-//             let x : u16 = (data[start+6] as u16) | (((data[start+7] as u16) & 7_u16) << 8_u16);
-//             let y : u16 = ((data[start+8] as u16) << 8_u16) | ((data[start+7] as u16) & (15_u16<<4));
-//             // print!("{x}")
-//             // print!("finger {}: ({x}, {y})\n", data[start+5])
-//         }
-//         // println!()
-//         // for (i, byte) in data[start..start+9].iter().enumerate() {
-//         //     print!("[{}]:{:#04x} ", i, byte);
-//         // }
-//     }
-//     println!();
-// }
+pub fn _print_data(data : &[u8]) {
+    // Print each byte with its index so you can identify offsets
+    for i in 0..data[35] {
+        let start : usize = 36 + (i*9) as usize;
+        if data[start+1]&(1<<7) == 0 {
+            let x : u16 = (data[start+2] as u16) | (((data[start+3] as u16) & 7_u16) << 8_u16);
+            let y : u16 = ((data[start+4] as u16) << 8_u16) | ((data[start+3] as u16) & (15_u16<<4));
+            // print!("{x}")
+            print!("finger {}: ({x}, {y})\n", data[start+1])
+        }
+        if data[start+5]&(1<<7) == 0 {
+            let x : u16 = (data[start+6] as u16) | (((data[start+7] as u16) & 7_u16) << 8_u16);
+            let y : u16 = ((data[start+8] as u16) << 8_u16) | ((data[start+7] as u16) & (15_u16<<4));
+            // print!("{x}")
+            // print!("finger {}: ({x}, {y})\n", data[start+5])
+        }
+        // println!()
+        // for (i, byte) in data[start..start+9].iter().enumerate() {
+        //     print!("[{}]:{:#04x} ", i, byte);
+        // }
+    }
+    println!();
+}
 
 /*
 dualshock mappings:

@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine::{self, ChordEngine}, controller_trait::DirectionalType, input_engine::FullInputEvent, intermediate_controller_state};
+use crate::{chord_engine::{self, ChordEngine}, controller_trait::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state};
 
 pub struct DisplayEngine {
     controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>,
@@ -28,19 +28,22 @@ impl DisplayEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Share, true) => self.chord_engine.increment_key(),
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Options, true) => self.chord_engine.increment_octave(),
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, true) => {
+                InputEvent::Directional(DirectionalType::Touchpad, v) => {
+                    println!("{v}")
+                }
+                InputEvent::Button(ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
+                InputEvent::Button(ButtonType::Share, true) => self.chord_engine.increment_key(),
+                InputEvent::Button(ButtonType::Options, true) => self.chord_engine.increment_octave(),
+                InputEvent::Button(ButtonType::LStickBtn, true) => {
                     self.chord_engine.decrement_key();
                     self.chord_engine.decrement_octave();
                 },
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, false) => {
+                InputEvent::Button(ButtonType::LStickBtn, false) => {
                     self.chord_engine.increment_key();
                     self.chord_engine.increment_octave();
                 },
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
+                InputEvent::Button(ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
+                InputEvent::Button(ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                 _ => ()
             }
             possible_event = self.controller_channel.try_recv();

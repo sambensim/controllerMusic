@@ -1,6 +1,6 @@
-use crate::controller::DS4;
+use crate::dualshock::DS4;
 
-mod controller;
+mod dualshock;
 mod visuals;
 mod sound;
 mod synths;

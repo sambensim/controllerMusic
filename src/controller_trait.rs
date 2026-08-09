@@ -6,7 +6,6 @@ pub enum InputEvent {
     Directional(DirectionalType, i8),
     Continuous(ContinuousType, f32),
     Button(ButtonType, bool),
-    None,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -14,6 +13,7 @@ pub enum DirectionalType {
     Left,
     Right,
     Dpad,
+    Touchpad,
 }
 
 #[derive(Copy, Clone, Debug)]

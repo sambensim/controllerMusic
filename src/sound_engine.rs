@@ -1,17 +1,41 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller_trait::DirectionalType, input_engine::FullInputEvent, synths::{self, Oscillator, Saw}};
+use crate::{chord_engine::{self, ChordEngine}, controller_trait::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, synths::{self, Oscillator, Saw}};
 use std::time::Instant;
 
 pub struct NoteInfo {
     pub note : u8,
-    pub _start : Instant,
-    pub release : Option<Instant>,
+    pub release : Option<Instant>
 }
+
+
 
 pub struct Voice <T> where T: synths::Oscillator {
     pub note_info : Option<NoteInfo>,
     pub osc : T,
     pub env : crate::adsr::Adsr,
+    locks : u8,
+}
+
+impl <T> Voice <T> where T: synths::Oscillator {
+    fn hold(&mut self) {
+        self.locks += 1;
+    }
+
+    fn release(&mut self) {
+        self.locks -= 1;
+        if self.locks == 0 {
+            self.env.release();
+            self.note_info.as_mut().unwrap().release = Some(Instant::now());
+        }
+    }
+
+    pub fn play(&mut self, note : u8) {
+        self.note_info = Some(NoteInfo {
+            note: note, release: None,
+        });
+        self.env.trigger();
+        self.hold()
+    }
 }
 
 impl<T> Voice <T> where T: synths::Oscillator {
@@ -20,6 +44,7 @@ impl<T> Voice <T> where T: synths::Oscillator {
             note_info : None,
             osc : T::new(sample_rate),
             env : crate::adsr::Adsr::new(sample_rate, 1.0, 3.0, 0.6, 1.0),
+            locks : 0,
         }
     }
 
@@ -57,7 +82,7 @@ impl SoundEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RBumper, true) => {
+                InputEvent::Button(ButtonType::RBumper, true) => {
                     self.release_chord(self.current_chord.clone());
                     self.play_chord({
                         if event.full_state.quantize_directional(DirectionalType::Left, 8) == -1  { vec!() } else {
@@ -67,18 +92,18 @@ impl SoundEngine {
                         }
                     })
                 },
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Share, true) => self.chord_engine.increment_key(),
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Options, true) => self.chord_engine.increment_octave(),
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, true) => {
+                InputEvent::Button(ButtonType::Share, true) => self.chord_engine.increment_key(),
+                InputEvent::Button(ButtonType::Options, true) => self.chord_engine.increment_octave(),
+                InputEvent::Button(ButtonType::LStickBtn, true) => {
                     self.chord_engine.decrement_key();
                     self.chord_engine.decrement_octave();
                 },
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, false) => {
+                InputEvent::Button(ButtonType::LStickBtn, false) => {
                     self.chord_engine.increment_key();
                     self.chord_engine.increment_octave();
                 },
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
-                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
+                InputEvent::Button(ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
+                InputEvent::Button(ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                 _ => ()
             }
             for v in &mut self.voices {
@@ -88,15 +113,57 @@ impl SoundEngine {
         };
     }
 
+    fn release_note(&mut self, note : u8) {
+        for v in self.voices.iter_mut() {
+            if let Some(ni) = &mut v.note_info {
+                if ni.note == note && ni.release.is_none() {
+                    v.release();
+                    break;
+                }
+            }
+        }
+    }
+
     fn release_chord(&mut self, notes : Vec<u8>) {
         for n in notes {
+            self.release_note(n);
+        }
+    }
+
+    fn play_note(&mut self, note : u8) {
+        let mut assigned : bool = false;
+        //check for voice already holding note
+        for v in self.voices.iter_mut() {
+            if let Some(ni) = &mut v.note_info {
+                if ni.note == note {
+                    v.play(note);
+                    assigned = true;
+                    break;
+                }
+            }
+        }
+        if !assigned {
+        //check for voice doing nothing
             for v in self.voices.iter_mut() {
-                if let Some(ni) = &mut v.note_info {
-                    if ni.note == n && ni.release.is_none() {
-                        ni.release = Some(Instant::now());
-                        v.env.release();
-                        break;
+                if v.note_info.is_none() {
+                    v.play(note);
+                    assigned = true;
+                    break;
+                }
+            }
+        //check for voice with a note no longer being held
+            if !assigned {
+                for v in self.voices.iter_mut() {
+                    if let Some(ni) = &mut v.note_info {
+                        if ni.release.is_some() {
+                            v.play(note);
+                            assigned = true;
+                            break;
+                        }
                     }
+                }
+                if !assigned {
+                    println!("max voices exceeded")
                 }
             }
         }
@@ -104,29 +171,7 @@ impl SoundEngine {
 
     fn play_chord(&mut self, notes : Vec<u8>) {
         for n in notes.iter() {
-            let mut assigned : bool = false;
-            for v in self.voices.iter_mut() {
-                if let Some(ni) = &mut v.note_info {
-                    if ni.release.is_some() {
-                        ni.release = None;
-                        v.env.trigger();
-                        ni.note = *n;
-                        assigned = true;
-                        break;
-                    }
-                }
-            }
-            if !assigned {
-                for v in self.voices.iter_mut() {
-                    if v.note_info.is_none() {
-                        v.note_info = Some(NoteInfo {
-                            note: *n, _start: Instant::now(), release: None,
-                        });
-                        v.env.trigger();
-                        break;
-                    }
-                }
-            }
+            self.play_note(*n);
         }
         self.current_chord = notes.clone();
     }
@@ -136,5 +181,5 @@ impl SoundEngine {
         freq
     }
 
-    pub const MAX_NOTES : usize = 4;
+    pub const MAX_NOTES : usize = 8;
 }

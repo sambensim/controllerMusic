@@ -30,16 +30,22 @@ impl IntermediateControllerState {
             .then(|| InputEvent::Directional(DirectionalType::Right, new_state.quantize_directional(DirectionalType::Right, 8)))
             .into_iter();
         let dpad = (self.dpad != new_state.dpad)
-            .then(|| InputEvent::Directional(DirectionalType::Right, new_state.dpad))
+            .then(|| InputEvent::Directional(DirectionalType::Dpad, new_state.dpad))
+            .into_iter();
+        let touchpad = (self.quantize_directional(DirectionalType::Touchpad, 5) != new_state.quantize_directional(DirectionalType::Touchpad, 5))
+            .then(|| InputEvent::Directional(DirectionalType::Touchpad, new_state.quantize_directional(DirectionalType::Touchpad, 5)))
             .into_iter();
         let buttons = self.button_events(new_state);
         let left_trigger = (self.l_trigger != new_state.l_trigger)
             .then(|| InputEvent::Continuous(ContinuousType::LeftTrigger, new_state.l_trigger))
             .into_iter();
-        //TODO - handle continuous input events (like trigger)
-        left.chain(right).chain(dpad)
+        let right_trigger = (self.r_trigger != new_state.r_trigger)
+            .then(|| InputEvent::Continuous(ContinuousType::RightTrigger, new_state.r_trigger))
+            .into_iter();
+
+        left.chain(right).chain(dpad).chain(touchpad)
             .chain(buttons)
-            .chain(left_trigger)
+            .chain(left_trigger).chain(right_trigger)
     } 
 
     pub fn quantize_directional(&self, directional_type : DirectionalType, regions : u8) -> i8 {
@@ -50,6 +56,11 @@ impl IntermediateControllerState {
             DirectionalType::Right => {
                 get_vec_section(self.right_stick_x, self.right_stick_y, regions)
             },
+            DirectionalType::Touchpad => {
+                //TODO - right now just partitions by x
+                // println!("{}", (self.touchpad_x * (regions as f32) as i8);
+                (self.touchpad_x * (regions as f32)) as i8
+            },
             _ => -1
         };
     }
@@ -57,7 +68,7 @@ impl IntermediateControllerState {
     pub fn quantize_continuous(&self, continuous_type : ContinuousType, regions : u8) -> i8 {
         return match continuous_type {
             ContinuousType::LeftTrigger => {
-                ((self.l_trigger / (regions as f32)) as u8 * regions) as i8
+                (self.l_trigger * (regions as f32)) as i8
             },
             _ => -1
         }
