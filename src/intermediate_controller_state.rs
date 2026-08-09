@@ -78,14 +78,6 @@ impl IntermediateControllerState {
         }
     }
 
-    // pub fn get_left_stick_section(&self) -> i8 {
-    //     get_vec_section(self.left_stick_x, self.left_stick_y)
-    // }
-
-    // pub fn get_right_stick_section(&self) -> i8 {
-    //     get_vec_section(self.right_stick_x, self.right_stick_y)
-    // }
-
     fn button_events(&self, new_state : Self) -> impl Iterator<Item = InputEvent> {
         let prev = self.packed_button_states;
         let next = new_state.packed_button_states;

@@ -42,10 +42,4 @@ pub trait Controller: Default + Copy + Clone + Send + 'static{
     fn get_controller() -> Result<HidDevice, String>;
 
     fn parse_report(buf: &[u8]) -> Option<crate::intermediate_controller_state::IntermediateControllerState>;
-
-    // fn quantize_directional(directional_type : DirectionalType, x : f32, y : f32, regions : u8) -> i8;
-    
-    // fn quantize_continuous(continuous_type : ContinuousType, val : f32, regions : u8) -> i8;
-
-    // fn get_button_state(&self, button : ButtonType) -> bool;
 }

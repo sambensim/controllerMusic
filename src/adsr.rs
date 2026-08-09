@@ -12,7 +12,6 @@ pub struct Adsr {
     rtime_secs : f32,
     phase : AdsrPhase,
     pub level : f32,
-    note_pressed : bool,
     sample_rate : u32,
 }
 
@@ -25,7 +24,6 @@ impl Adsr {
             rtime_secs : r,
             phase : AdsrPhase::Release,
             level : 0.0,
-            note_pressed : false,
             sample_rate : sample_rate,
         }
     }

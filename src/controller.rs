@@ -82,10 +82,6 @@ impl crate::controller_trait::Controller for DS4 {
         }
         panic!("unknown mapping");
     }
-
-    // fn get_button_state(&self, button : crate::controller_trait::ButtonType) -> bool {
-    //     (self.packed_button_states & 1<<button as u8) != 0
-    // }
 }
 
 impl DS4 {

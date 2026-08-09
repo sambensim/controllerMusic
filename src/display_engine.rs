@@ -28,7 +28,6 @@ impl DisplayEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                // controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.selected_chord = self.get_selected_chord(&event.full_state),
                 crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
                 crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Share, true) => self.chord_engine.increment_key(),
                 crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Options, true) => self.chord_engine.increment_octave(),

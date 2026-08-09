@@ -18,7 +18,6 @@ pub struct InputEngine {
 impl InputEngine {
     pub fn init<T>() -> InputEngine where T: crate::controller_trait::Controller {
         let device = T::get_controller().unwrap();
-        // let _ = controller::enable_full_bt_reports(&dualshock);
         let controller_stream = crate::intermediate_controller_state::start_controller_thread::<T>(device);
         let (sender, _) = tokio::sync::broadcast::channel(32);
        

@@ -122,13 +122,11 @@ impl SoundEngine {
                         v.note_info = Some(NoteInfo {
                             note: *n, _start: Instant::now(), release: None,
                         });
+                        v.env.trigger();
                         break;
                     }
                 }
             }
-            // if !assigned {
-            //     TODO – PRINT ERROR AND OVERWRITE VOICE
-            // }
         }
         self.current_chord = notes.clone();
     }
