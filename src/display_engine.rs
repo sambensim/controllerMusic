@@ -1,9 +1,9 @@
-use std::{collections::VecDeque, iter::StepBy, sync::mpsc::Receiver};
+use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine::{self, ChordEngine}, controller::{self, DS4State}, input_engine::InputEvent};
+use crate::{chord_engine::{self, ChordEngine}, controller_trait::DirectionalType, input_engine::FullInputEvent, intermediate_controller_state};
 
 pub struct DisplayEngine {
-    controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
+    controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>,
     chord_engine : chord_engine::ChordEngine,
     samp_channel : Receiver<f32>,
     samples : VecDeque<f32>,
@@ -12,7 +12,7 @@ pub struct DisplayEngine {
 }
 
 impl DisplayEngine {
-    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<InputEvent>, samp_channel : Receiver<f32>) -> Self {
+    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<FullInputEvent>, samp_channel : Receiver<f32>) -> Self {
         DisplayEngine {
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
@@ -29,19 +29,19 @@ impl DisplayEngine {
             let event = possible_event.unwrap();
             match event.event_info {
                 // controller::InputEvent::Directional(controller::DirectionalType::Left, _) | controller::InputEvent::Directional(controller::DirectionalType::Right, _)  => self.selected_chord = self.get_selected_chord(&event.full_state),
-                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
-                controller::InputEvent::Button(controller::ButtonType::Share, true) => self.chord_engine.increment_key(),
-                controller::InputEvent::Button(controller::ButtonType::Options, true) => self.chord_engine.increment_octave(),
-                controller::InputEvent::Button(controller::ButtonType::LStickBtn, true) => {
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Share, true) => self.chord_engine.increment_key(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Options, true) => self.chord_engine.increment_octave(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, true) => {
                     self.chord_engine.decrement_key();
                     self.chord_engine.decrement_octave();
                 },
-                controller::InputEvent::Button(controller::ButtonType::LStickBtn, false) => {
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, false) => {
                     self.chord_engine.increment_key();
                     self.chord_engine.increment_octave();
                 },
-                controller::InputEvent::Button(controller::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
-                controller::InputEvent::Button(controller::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                 _ => ()
             }
             possible_event = self.controller_channel.try_recv();
@@ -49,9 +49,9 @@ impl DisplayEngine {
         };
     }
 
-    fn get_selected_chord(&self, full_state : &DS4State) -> String {
-        if controller::get_left_stick_section(full_state) == -1  { "None".to_string() } else {
-            chord_engine::ChordEngine::get_chord_name(self.chord_engine.get_key_value(), controller::get_left_stick_section(full_state) as i32, controller::get_right_stick_section(full_state) as i32)
+    fn get_selected_chord(&self, full_state : &intermediate_controller_state::IntermediateControllerState) -> String {
+        if full_state.quantize_directional(DirectionalType::Left, 8) == -1 { "None".to_string() } else {
+            chord_engine::ChordEngine::get_chord_name(self.chord_engine.get_key_value(), full_state.quantize_directional(DirectionalType::Left, 8) as i32, full_state.quantize_directional(DirectionalType::Right, 8) as i32)
         }
     }
 

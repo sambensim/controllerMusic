@@ -1,60 +1,129 @@
 use hidapi::{HidApi, HidDevice};
-use std::f32::consts::PI;
-use std::sync::{mpsc};
-use std::{range, thread};
 
-pub fn get_dualshock() -> Result<HidDevice, String> {
-    let api = HidApi::new().expect("Failed to initialize HidApi");
-    let controller = api.device_list().find(|device| {
-        device.product_string()
-            .unwrap_or("")
-            .contains("DUALSHOCK")
-    });
-    if let Some(_device) = controller {
-        // println!("{:04x}:{:04x}", controller.unwrap().vendor_id(), controller.unwrap().product_id());
-        // println!("{:?}:{:?}", controller.unwrap().manufacturer_string(), controller.unwrap().product_string());
-        return Ok(controller.unwrap().open_device(&api).unwrap());
-    } else {
-        return Err("No DualShock controller found".to_string())
+use crate::intermediate_controller_state::IntermediateControllerState;
+
+#[derive(Default, Copy, Clone, Debug)]
+pub struct DS4 {}
+//     // Sticks: normalized -1.0 to 1.0
+//     pub left_stick_x: f32,
+//     pub left_stick_y: f32,
+//     pub right_stick_x: f32,
+//     pub right_stick_y: f32,
+//     // Triggers: 0.0 to 1.0
+//     pub l_trigger: f32,
+//     pub r_trigger: f32,
+//     // Buttons
+//     pub packed_button_states : u16,
+//     // D-pad: 0-7 clockwise from up, 8 == none
+//     pub dpad: i8,
+// }
+
+impl crate::controller_trait::Controller for DS4 {
+    fn get_controller() -> Result<HidDevice, String> {
+        let api = HidApi::new().expect("Failed to initialize HidApi");
+        let controller = api.device_list().find(|device| {
+            device.product_string()
+                .unwrap_or("")
+                .contains("DUALSHOCK")
+        });
+        if let Some(_device) = controller {
+            // println!("{:04x}:{:04x}", controller.unwrap().vendor_id(), controller.unwrap().product_id());
+            // println!("{:?}:{:?}", controller.unwrap().manufacturer_string(), controller.unwrap().product_string());
+            let out = controller.unwrap().open_device(&api).unwrap();
+            let _ = Self::enable_full_bt_reports(&out); //TODO - handle error
+            return Ok(out)
+        } else {
+            return Err("No DualShock controller found".to_string())
+        }
+    }
+
+    fn parse_report(buf: &[u8]) -> Option<IntermediateControllerState> {
+        // Normalize a raw 0-255 byte to -1.0 to 1.0
+        let axis = |byte: u8| -> f32 {
+            (byte as f32 - 128.0) / 128.0
+        };
+        // Normalize a raw 0-255 byte to 0.0 to 1.0
+        let trigger = |byte: u8| -> f32 {
+            byte as f32 / 255.0
+        };
+        if buf[0] == 0x11 {
+            if (buf[1] >> 7) & 1 == 0 {
+                return None; //audio only output (microphone?)
+            }
+            return Some(IntermediateControllerState {
+                left_stick_x:  axis(buf[3]),
+                left_stick_y:  axis(buf[4]),
+                right_stick_x: axis(buf[5]),
+                right_stick_y: axis(buf[6]),
+                l_trigger: trigger(buf[10]),
+                r_trigger: trigger(buf[11]),
+                // High nibble of byte 7 + all of byte 8
+                packed_button_states :  (buf[8] as u16) << 4 | ((buf[7] & 0xF0) as u16) >> 4,
+                // Low nibble of byte 7
+                dpad: buf[7] as i8 & 0x0F,
+                touchpad_x : 0.0,
+                touchpad_y : 0.0,
+            })
+        } else if buf[0] == 0x01 {
+            return Some(IntermediateControllerState {
+                left_stick_x:  axis(buf[1]),
+                left_stick_y:  axis(buf[2]),
+                right_stick_x: axis(buf[3]),
+                right_stick_y: axis(buf[4]),
+                l_trigger: trigger(buf[8]),
+                r_trigger: trigger(buf[9]),
+                // High nibble of byte 5 + all of byte 6
+                packed_button_states :  (buf[6] as u16) << 4 | ((buf[5] & 0xF0) as u16) >> 4,
+                // Low nibble of byte 7
+                dpad: buf[5] as i8 & 0x0F,
+                touchpad_x : 0.0,
+                touchpad_y : 0.0,
+            })
+        }
+        panic!("unknown mapping");
+    }
+
+    // fn get_button_state(&self, button : crate::controller_trait::ButtonType) -> bool {
+    //     (self.packed_button_states & 1<<button as u8) != 0
+    // }
+}
+
+impl DS4 {
+    fn enable_full_bt_reports(device: &hidapi::HidDevice) -> hidapi::HidResult<()> { //AI
+        // Request the BT calibration feature report (0x05).
+        // This is what tells the DS4 to switch from the short 0x01 reports
+        // to the extended 0x11–0x19 reports. You only need to call this once
+        let mut buf = [0u8; 41]; // ReportFeatureInCalibrateBT is 41 bytes
+        buf[0] = 0x05;           // report ID
+        device.get_feature_report(&mut buf)?;
+        // You can parse the calibration data out of buf here if you want it
+        Ok(())
     }
 }
 
-pub fn enable_full_bt_reports(device: &hidapi::HidDevice) -> hidapi::HidResult<()> { //AI
-    // Request the BT calibration feature report (0x05).
-    // This is what tells the DS4 to switch from the short 0x01 reports
-    // to the extended 0x11–0x19 reports. You only need to call this once
-    // after opening the device over Bluetooth.
-    let mut buf = [0u8; 41]; // ReportFeatureInCalibrateBT is 41 bytes
-    buf[0] = 0x05;           // report ID
-    device.get_feature_report(&mut buf)?;
-    // You can parse the calibration data out of buf here if you want it,
-    // but just making the request is enough to unlock the extended reports.
-    Ok(())
-}
-
-pub fn _print_data(data : &[u8; 78]) {
-    // Print each byte with its index so you can identify offsets
-    for i in 0..data[35] {
-        let start : usize = 36 + (i*9) as usize;
-        if data[start+1]&(1<<7) == 0 {
-            let x : u16 = (data[start+2] as u16) | (((data[start+3] as u16) & 7_u16) << 8_u16);
-            let y : u16 = ((data[start+4] as u16) << 8_u16) | ((data[start+3] as u16) & (15_u16<<4));
-            // print!("{x}")
-            // print!("finger {}: ({x}, {y})\n", data[start+1])
-        }
-        if data[start+5]&(1<<7) == 0 {
-            let x : u16 = (data[start+6] as u16) | (((data[start+7] as u16) & 7_u16) << 8_u16);
-            let y : u16 = ((data[start+8] as u16) << 8_u16) | ((data[start+7] as u16) & (15_u16<<4));
-            // print!("{x}")
-            // print!("finger {}: ({x}, {y})\n", data[start+5])
-        }
-        // println!()
-        // for (i, byte) in data[start..start+9].iter().enumerate() {
-        //     print!("[{}]:{:#04x} ", i, byte);
-        // }
-    }
-    println!();
-}
+// pub fn _print_data(data : &[u8; 78]) {
+//     // Print each byte with its index so you can identify offsets
+//     for i in 0..data[35] {
+//         let start : usize = 36 + (i*9) as usize;
+//         if data[start+1]&(1<<7) == 0 {
+//             let x : u16 = (data[start+2] as u16) | (((data[start+3] as u16) & 7_u16) << 8_u16);
+//             let y : u16 = ((data[start+4] as u16) << 8_u16) | ((data[start+3] as u16) & (15_u16<<4));
+//             // print!("{x}")
+//             // print!("finger {}: ({x}, {y})\n", data[start+1])
+//         }
+//         if data[start+5]&(1<<7) == 0 {
+//             let x : u16 = (data[start+6] as u16) | (((data[start+7] as u16) & 7_u16) << 8_u16);
+//             let y : u16 = ((data[start+8] as u16) << 8_u16) | ((data[start+7] as u16) & (15_u16<<4));
+//             // print!("{x}")
+//             // print!("finger {}: ({x}, {y})\n", data[start+5])
+//         }
+//         // println!()
+//         // for (i, byte) in data[start..start+9].iter().enumerate() {
+//         //     print!("[{}]:{:#04x} ", i, byte);
+//         // }
+//     }
+//     println!();
+// }
 
 /*
 dualshock mappings:
@@ -69,180 +138,3 @@ byte 8: (last four bits): [l-bumper, r-bumper, l-trigger down, r-trigger down]
 l-trigger: byte 10: none == 00, full == ff
 r-trigger: byte 11: none == 00, full == ff
 */
-
-#[derive(Default, Copy, Clone, Debug)]
-pub struct DS4State {
-    // Sticks: normalized -1.0 to 1.0
-    pub left_stick_x: f32,
-    pub left_stick_y: f32,
-    pub right_stick_x: f32,
-    pub right_stick_y: f32,
-    // Triggers: 0.0 to 1.0
-    pub l_trigger: f32,
-    pub r_trigger: f32,
-    // Buttons
-    pub packed_button_states : u16,
-    // D-pad: 0-7 clockwise from up, 8 == none
-    pub dpad: i8,
-}
-
-pub const DS4_EMPTY : DS4State = DS4State {
-    left_stick_x: 0.0,
-    left_stick_y: 0.0,
-    right_stick_x: 0.0,
-    right_stick_y: 0.0,
-    l_trigger: 0.0,
-    r_trigger: 0.0,
-    packed_button_states : 0,
-    dpad: 8,
-};
-
-pub fn parse_report(buf: &[u8]) -> Option<DS4State> {
-    // Normalize a raw 0-255 byte to -1.0 to 1.0
-    let axis = |byte: u8| -> f32 {
-        (byte as f32 - 128.0) / 128.0
-    };
-    // Normalize a raw 0-255 byte to 0.0 to 1.0
-    let trigger = |byte: u8| -> f32 {
-        byte as f32 / 255.0
-    };
-    if buf[0] == 0x11 {
-        if (buf[1] >> 7) & 1 == 0 {
-            return None; //audio only output (microphone?)
-        }
-        return Some(DS4State {
-            left_stick_x:  axis(buf[3]),
-            left_stick_y:  axis(buf[4]),
-            right_stick_x: axis(buf[5]),
-            right_stick_y: axis(buf[6]),
-            l_trigger: trigger(buf[10]),
-            r_trigger: trigger(buf[11]),
-            // High nibble of byte 7 + all of byte 8
-            packed_button_states :  (buf[8] as u16) << 4 | ((buf[7] & 0xF0) as u16) >> 4,
-            // Low nibble of byte 7
-            dpad: buf[7] as i8 & 0x0F,
-        })
-    } else if buf[0] == 0x01 {
-        return Some(DS4State {
-            left_stick_x:  axis(buf[1]),
-            left_stick_y:  axis(buf[2]),
-            right_stick_x: axis(buf[3]),
-            right_stick_y: axis(buf[4]),
-            l_trigger: trigger(buf[8]),
-            r_trigger: trigger(buf[9]),
-            // High nibble of byte 5 + all of byte 6
-            packed_button_states :  (buf[6] as u16) << 4 | ((buf[5] & 0xF0) as u16) >> 4,
-            // Low nibble of byte 7
-            dpad: buf[5] as i8 & 0x0F,
-        })
-    }
-    panic!("unknown mapping");
-}
-
-pub fn start_controller_thread(device: hidapi::HidDevice) -> mpsc::Receiver<DS4State> {
-
-    let (sender, receiver) = mpsc::channel();
-
-    thread::spawn(move || {
-        let mut buf = [0u8; 78];
-        loop {
-            if let Ok(_) = device.read(&mut buf) {
-                // _print_data(&buf);
-                let parsed = parse_report(&buf);
-                if let Some(data) = parsed {
-                    // println!("{data:?}");
-                    // println!("{:?}", get_button_state(&data, ButtonType::RBumper));
-                    let _ = sender.send(data);
-                }
-            }
-        }
-    });
-
-    // state // return the Arc to the caller
-    receiver
-}
-
-pub fn get_left_stick_section(controller_state : &DS4State) -> i8 {
-    get_vec_section(controller_state.left_stick_x, controller_state.left_stick_y)
-}
-
-pub fn get_right_stick_section(controller_state : &DS4State) -> i8 {
-    get_vec_section(controller_state.right_stick_x, controller_state.right_stick_y)
-}
-
-fn get_vec_section(x : f32, y : f32) -> i8 {
-    let magnitude = (x * x + y * y).sqrt();
-    const THRESHOLD : f32 = 0.4;
-    if magnitude < THRESHOLD { return -1 } ;
-    let angle : f32 = y.atan2(x);
-    let normalized_angle : f32 = if angle < 0.0 { angle + 2.0 * PI } else { angle };
-    ((normalized_angle / ((2.0 * PI) / 8.0)).round() % 8.0) as i8
-  }
-
-pub fn get_button_state(controller_state : &DS4State, id : ButtonType) -> bool {
-    (controller_state.packed_button_states & 1<<id as u8) != 0
-}
-
-pub fn button_events(prev: u16, current: u16) -> impl Iterator<Item = InputEvent> {
-    let changed = prev ^ current;
-    BUTTONS.iter().enumerate()
-    .filter(move |(i, _)| changed & (1u16 << i) != 0)
-    .map(move |(i, &b)| InputEvent::Button(b, current & (1u16 << i) != 0))
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum InputEvent {
-    Directional(DirectionalType, i8),
-    Continuous(TriggerType, f32),
-    Button(ButtonType, bool),
-    None,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum DirectionalType {
-    Left,
-    Right,
-    Dpad,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum TriggerType {
-    Left,
-    Right,
-}
-
-macro_rules! buttons { //AI
-    ($($name:ident),* $(,)?) => {
-        #[repr(u8)]
-        #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-        pub enum ButtonType { $($name),* }
-
-        pub const BUTTONS: &[ButtonType] = &[$(ButtonType::$name),*];
-    };
-}
-
-buttons!(
-    Square, Cross, Circle, Triangle,
-    LBumper, RBumper, LTriggerBtn, RTriggerBtn,
-    Share, Options, LStickBtn, RStickBtn,
-);
-
-pub fn get_events(prev_state : DS4State, current_state : DS4State) -> impl Iterator<Item = InputEvent> {
-    let left =  (get_left_stick_section(&prev_state) != get_left_stick_section(&current_state))
-        .then(|| InputEvent::Directional(DirectionalType::Left, get_left_stick_section(&current_state)))
-        .into_iter();
-    let right =  (get_right_stick_section(&prev_state) != get_right_stick_section(&current_state))
-        .then(|| InputEvent::Directional(DirectionalType::Right, get_right_stick_section(&current_state)))
-        .into_iter();
-    let dpad = (prev_state.dpad != current_state.dpad)
-        .then(|| InputEvent::Directional(DirectionalType::Right, current_state.dpad))
-        .into_iter();
-    let buttons = button_events(prev_state.packed_button_states, current_state.packed_button_states);
-    let left_trigger = (prev_state.l_trigger != current_state.l_trigger)
-        .then(|| InputEvent::Continuous(TriggerType::Left, current_state.l_trigger))
-        .into_iter();
-    //TODO - handle continuous input events (like trigger)
-    left.chain(right).chain(dpad)
-        .chain(buttons)
-        .chain(left_trigger)
-}

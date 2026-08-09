@@ -2,11 +2,10 @@ use std::sync::mpsc::Receiver;
 use raylib::drawing::RaylibDrawHandle;
 use raylib::prelude::*;
 
-use crate::chord_engine::{ChordEngine, chord_type_dict};
 use crate::display_engine::DisplayEngine;
-use crate::input_engine::{InputEngine, InputEvent};
+use crate::input_engine::{FullInputEvent, InputEngine};
 
-pub fn run(samp_channel : Receiver<f32>, controller_channel : tokio::sync::broadcast::Receiver<InputEvent>, mut input_engine : InputEngine) {
+pub fn run(samp_channel : Receiver<f32>, controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>, mut input_engine : InputEngine) {
 
     let mut display_engine : DisplayEngine = DisplayEngine::init(controller_channel, samp_channel);
 

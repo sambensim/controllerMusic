@@ -1,10 +1,10 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller::{self}, input_engine::InputEvent, synths::{self, Oscillator, Saw}};
+use crate::{chord_engine::{self, ChordEngine}, controller_trait::DirectionalType, input_engine::FullInputEvent, synths::{self, Oscillator, Saw}};
 use std::time::Instant;
 
 pub struct NoteInfo {
     pub note : u8,
-    pub start : Instant,
+    pub _start : Instant,
     pub release : Option<Instant>,
 }
 
@@ -33,15 +33,15 @@ impl<T> Voice <T> where T: synths::Oscillator {
 }
 
 pub struct SoundEngine {
-    controller_channel : tokio::sync::broadcast::Receiver<InputEvent>,
+    controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>,
     chord_engine : chord_engine::ChordEngine,
     freq_send : mpsc::Sender<f32>,
-    pub voices : [Voice<synths::Fm<Saw>>; SoundEngine::MAX_NOTES],
+    pub voices : [Voice<Saw>; SoundEngine::MAX_NOTES],
     pub current_chord : Vec<u8>
 }
 
 impl SoundEngine {
-    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<InputEvent>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: u32) -> Self {
+    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<FullInputEvent>, frequency_send_channel: mpsc::Sender<f32>, sample_rate: u32) -> Self {
         SoundEngine {
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
@@ -57,28 +57,28 @@ impl SoundEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                controller::InputEvent::Button(controller::ButtonType::RBumper, true) => {
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RBumper, true) => {
                     self.release_chord(self.current_chord.clone());
                     self.play_chord({
-                        if controller::get_left_stick_section(&event.full_state) == -1  { vec!() } else {
+                        if event.full_state.quantize_directional(DirectionalType::Left, 8) == -1  { vec!() } else {
                             self.chord_engine.get_chord_notes(
-                                controller::get_left_stick_section(&event.full_state) as i32, controller::get_right_stick_section(&event.full_state) as i32
+                                event.full_state.quantize_directional(DirectionalType::Left, 8) as i32, event.full_state.quantize_directional(DirectionalType::Right, 8) as i32
                             ).into_iter().map(|note| { ChordEngine::note_to_value(&note).unwrap() }).collect()
                         }
                     })
                 },
-                controller::InputEvent::Button(controller::ButtonType::Share, true) => self.chord_engine.increment_key(),
-                controller::InputEvent::Button(controller::ButtonType::Options, true) => self.chord_engine.increment_octave(),
-                controller::InputEvent::Button(controller::ButtonType::LStickBtn, true) => {
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Share, true) => self.chord_engine.increment_key(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::Options, true) => self.chord_engine.increment_octave(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, true) => {
                     self.chord_engine.decrement_key();
                     self.chord_engine.decrement_octave();
                 },
-                controller::InputEvent::Button(controller::ButtonType::LStickBtn, false) => {
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::LStickBtn, false) => {
                     self.chord_engine.increment_key();
                     self.chord_engine.increment_octave();
                 },
-                controller::InputEvent::Button(controller::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
-                controller::InputEvent::Button(controller::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
+                crate::controller_trait::InputEvent::Button(crate::controller_trait::ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                 _ => ()
             }
             for v in &mut self.voices {
@@ -120,7 +120,7 @@ impl SoundEngine {
                 for v in self.voices.iter_mut() {
                     if v.note_info.is_none() {
                         v.note_info = Some(NoteInfo {
-                            note: *n, start: Instant::now(), release: None,
+                            note: *n, _start: Instant::now(), release: None,
                         });
                         break;
                     }
@@ -138,5 +138,5 @@ impl SoundEngine {
         freq
     }
 
-    pub const MAX_NOTES : usize = 8;
+    pub const MAX_NOTES : usize = 4;
 }

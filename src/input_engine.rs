@@ -1,44 +1,44 @@
 use std::sync::mpsc::Receiver;
 
-use crate::controller::{self, DS4State};
+use crate::intermediate_controller_state::IntermediateControllerState;
 
 #[derive(Clone)]
-pub struct InputEvent {
-    pub full_state : DS4State,
-    pub event_info : controller::InputEvent,
+pub struct FullInputEvent {
+    pub full_state : crate::intermediate_controller_state::IntermediateControllerState,
+    pub event_info : crate::controller_trait::InputEvent,
 }
 
 
 pub struct InputEngine {
-    last_state : DS4State,
-    controller_stream : Receiver<DS4State>,
-    controller_event_channel : tokio::sync::broadcast::Sender<InputEvent>,
+    last_state : IntermediateControllerState,
+    controller_stream : Receiver<crate::intermediate_controller_state::IntermediateControllerState>,
+    controller_event_channel : tokio::sync::broadcast::Sender<FullInputEvent>,
 }
 
 impl InputEngine {
-    pub fn init() -> InputEngine {
-        let dualshock = controller::get_dualshock().unwrap();
-        let _ = controller::enable_full_bt_reports(&dualshock);
-        let controller_stream = controller::start_controller_thread(dualshock);
+    pub fn init<T>() -> InputEngine where T: crate::controller_trait::Controller {
+        let device = T::get_controller().unwrap();
+        // let _ = controller::enable_full_bt_reports(&dualshock);
+        let controller_stream = crate::intermediate_controller_state::start_controller_thread::<T>(device);
         let (sender, _) = tokio::sync::broadcast::channel(32);
        
         InputEngine {
-            last_state : controller::DS4_EMPTY,
+            last_state : IntermediateControllerState::get_default(),
             controller_stream : controller_stream,
             controller_event_channel : sender,
         }
     }
 
-    pub fn subscribe(&self) ->  tokio::sync::broadcast::Receiver<InputEvent> {
+    pub fn subscribe(&self) ->  tokio::sync::broadcast::Receiver<FullInputEvent> {
         self.controller_event_channel.subscribe()
     }
 
     pub fn step(&mut self) {
         let mut new_state = self.controller_stream.try_recv();
         while !new_state.is_err() {
-            let events = controller::get_events(self.last_state, new_state.unwrap());
+            let events = self.last_state.get_events(new_state.unwrap());
             for e in events {
-                let _ = self.controller_event_channel.send(InputEvent {
+                let _ = self.controller_event_channel.send(FullInputEvent {
                     full_state : new_state.unwrap(),
                     event_info : e,
                 });
