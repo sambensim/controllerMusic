@@ -3,17 +3,18 @@ use hidapi::HidDevice;
 
 #[derive(Copy, Clone, Debug)]
 pub enum InputEvent {
-    Directional(DirectionalType, i8),
+    Discrete(DiscreteType, i8),
     Continuous(ContinuousType, f32),
     Button(ButtonType, bool),
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum DirectionalType {
+pub enum DiscreteType {
     Left,
     Right,
     Dpad,
-    Touchpad,
+    TouchX,
+    TouchY,
 }
 
 #[derive(Copy, Clone, Debug)]

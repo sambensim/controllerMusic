@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state::{self, IntermediateControllerState}, synths::{self, Fm, Oscillator, Saw, Sin}};
+use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state::{self, IntermediateControllerState}, synths::{self, BitCrush, Fm, Noise, Oscillator, Saw, Sin}};
 use std::time::Instant;
 
 pub struct NoteInfo {
@@ -59,7 +59,7 @@ pub struct SoundEngine {
     controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>,
     chord_engine : chord_engine::ChordEngine,
     freq_send : mpsc::Sender<f32>,
-    pub voices : [Voice<Fm<Sin>>; SoundEngine::MAX_NOTES],
+    pub voices : [Voice<Noise<BitCrush<Fm<Sin>>>>; SoundEngine::MAX_NOTES],
     pub current_chord : Vec<u8>,
     pub lead_note : u8
 }
@@ -85,30 +85,30 @@ impl SoundEngine {
                 InputEvent::Button(ButtonType::RBumper, true) => {
                     self.release_chord(self.current_chord.clone());
                     self.play_chord({
-                        if event.full_state.quantize_directional(DirectionalType::Left, 8) == -1  { vec!() } else {
+                        if event.full_state.quantize(DiscreteType::Left, 8) == -1  { vec!() } else {
                             self.chord_engine.get_chord_notes(
-                                event.full_state.quantize_directional(DirectionalType::Left, 8) as i32, event.full_state.quantize_directional(DirectionalType::Right, 8) as i32
+                                event.full_state.quantize(DiscreteType::Left, 8) as i32, event.full_state.quantize(DiscreteType::Right, 8) as i32
                             ).into_iter().map(|note| { ChordEngine::note_to_value(&note).unwrap() }).collect()
                         }
                     })
                 },
-                InputEvent::Button(ButtonType::Touch, true) | InputEvent::Directional(DirectionalType::Touchpad, _)=> {
-                    let region = event.full_state.quantize_directional(DirectionalType::Touchpad,14);
+                InputEvent::Button(ButtonType::Touch, true) | InputEvent::Discrete(DiscreteType::TouchX, _)=> {
+                    let region = event.full_state.quantize(DiscreteType::TouchX,8);
                     let mut note;
                     let key;
                     if self.current_chord.len() > 0 {
-                        key = self.current_chord[0];
-                    //     let base = self.current_chord[region as usize % self.current_chord.len()];
-                    //     note = base + 12_u8 * (region / self.current_chord.len() as i8) as u8;
+                        // key = self.current_chord[0];
+                        let base = self.current_chord[region as usize % self.current_chord.len()];
+                        note = base + 12_u8 * (region / self.current_chord.len() as i8) as u8;
                     } else {
                         key = self.chord_engine.get_key_value();
+                        let kn = ChordEngine::get_key_notes(key);
+                        let base = &kn[region as usize % kn.len()];
+                        let oct = 5;
+                        note = ChordEngine::note_to_value(&format!("{}{}", &base, oct)).unwrap();
+                        let temp = &ChordEngine::note_add(note, 12 * (region as usize / kn.len()) as u8);
+                        note = ChordEngine::note_to_value(&temp).unwrap();
                     }
-                    let kn = ChordEngine::get_key_notes(key);
-                    let base = &kn[region as usize % kn.len()];
-                    let oct = 5;
-                    note = ChordEngine::note_to_value(&format!("{}{}", &base, oct)).unwrap();
-                    let temp = &ChordEngine::note_add(note, 12 * (region as usize / kn.len()) as u8);
-                    note = ChordEngine::note_to_value(&temp).unwrap();
                     self.release_note(self.lead_note);
                     self.lead_note = note;
                     self.play_note(note);

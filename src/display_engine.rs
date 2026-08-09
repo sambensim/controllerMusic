@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DirectionalType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state};
+use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state};
 
 pub struct DisplayEngine {
     controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>,
@@ -28,7 +28,7 @@ impl DisplayEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                InputEvent::Directional(DirectionalType::Touchpad, v) => {
+                InputEvent::Discrete(DiscreteType::TouchX, v) => {
                     println!("{v}")
                 }
                 // InputEvent::Button(ButtonType::Touch, true) => self.play
@@ -53,8 +53,8 @@ impl DisplayEngine {
     }
 
     fn get_selected_chord(&self, full_state : &intermediate_controller_state::IntermediateControllerState) -> String {
-        if full_state.quantize_directional(DirectionalType::Left, 8) == -1 { "None".to_string() } else {
-            chord_engine::ChordEngine::get_chord_name(self.chord_engine.get_key_value(), full_state.quantize_directional(DirectionalType::Left, 8) as i32, full_state.quantize_directional(DirectionalType::Right, 8) as i32)
+        if full_state.quantize(DiscreteType::Left, 8) == -1 { "None".to_string() } else {
+            chord_engine::ChordEngine::get_chord_name(self.chord_engine.get_key_value(), full_state.quantize(DiscreteType::Left, 8) as i32, full_state.quantize(DiscreteType::Right, 8) as i32)
         }
     }
 

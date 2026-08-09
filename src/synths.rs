@@ -127,12 +127,13 @@ impl <T>Oscillator for Fm <T> where T: Oscillator{
         match event {
             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(self.ratio, v * 4.0),
             crate::controller::InputEvent::Button(crate::controller::ButtonType::RBumper, true) => {
-                let n = [0.25, 0.5, 1.0][fastrand::usize(1..3)];
+                let n = 1.0;//[0.25, 0.5, 1.0][fastrand::usize(0..3)];
                 println!("{n}");
                 self.set( n, self.modulation_amplitude)
             },
             _ => ()
         };
+        self.carrier.handle_input(event);
     }
 }
 
@@ -169,8 +170,8 @@ impl<T> Oscillator for GlideSin <T> where T: Oscillator{
         self.osc.step(self.freq)
     }
 
-   fn handle_input(&mut self, _event : crate::controller::InputEvent) {
-        ();
+   fn handle_input(&mut self, event : crate::controller::InputEvent) {
+        self.osc.handle_input(event);
     }
 }
 
@@ -198,10 +199,68 @@ impl<T> Oscillator for BitCrush <T> where T: Oscillator{
     }
 
    fn handle_input(&mut self, event : crate::controller::InputEvent) {
+        self.osc.handle_input(event);
         match event {
-            crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(66 - (v * 64.0) as u32),
+            crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::RightTrigger, v) => self.set(66 - (v * 64.0) as u32),
             _ => ()
         };
+   }
+}
+
+pub struct Noise <T> where T: Oscillator {
+    osc : T,
+    wetness : f32,
+}
+
+impl<T> Noise <T> where T: Oscillator{
+    pub fn set(&mut self,  wetness : f32) {
+        self.wetness = wetness;
+    }
+}
+
+impl<T> Oscillator for Noise <T> where T: Oscillator{
+    fn new(sample_rate : u32) -> Self {
+        Noise {
+            osc : T::new(sample_rate),
+            wetness : 0.08,
+        }
+    }
+
+    fn step(&mut self, freq : f32) -> f32 {
+        self.osc.step(freq) * (1.0 - self.wetness) + self.wetness * (fastrand::f32_inclusive() * 2.0 - 1.0)
+    }
+
+   fn handle_input(&mut self, event : crate::controller::InputEvent) {
+        self.osc.handle_input(event);
+   }
+}
+
+
+pub struct Gain <T> where T: Oscillator {
+    osc : T,
+    coefficient : f32,
+}
+
+impl<T> Gain <T> where T: Oscillator{
+    pub fn set(&mut self,  coefficient : f32) {
+        self.coefficient = coefficient;
+    }
+}
+
+impl<T> Oscillator for Gain <T> where T: Oscillator{
+    fn new(sample_rate : u32) -> Self {
+        Gain {
+            osc : T::new(sample_rate),
+            coefficient : 1.0,
+        }
+    }
+
+    fn step(&mut self, freq : f32) -> f32 {
+        self.osc.step(freq) * self.coefficient
+    }
+
+   fn handle_input(&mut self, event : crate::controller::InputEvent) {
+        self.osc.handle_input(event);
    }
 }
 
