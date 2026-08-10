@@ -1,5 +1,3 @@
-use std::iter::Map;
-
 use crate::{adsr::Adsr, oscillator::Oscillator, voice::Voice};
 
 pub struct VoiceManager {

@@ -1,21 +1,5 @@
 use std::f32::consts::PI;
 
-use crate::{sound_engine::SoundEngine};
-
-const VOLUME : f32 = 1.0;
-
-pub fn get_process(mut sound_engine : SoundEngine) -> impl FnMut(f32, f32, f32) -> f32 {
-    move |_: f32, _: f32, _: f32| -> f32 {
-        sound_engine.handle_input();
-        let mut out : f32 = 0.0;
-        for instrument in &mut sound_engine.instruments {
-            out += instrument.step();
-        };
-        out *= 0.5_f32.sqrt().powi(sound_engine.instruments.len().max(1) as i32); //TODO, set by active instead of all
-        sound_engine.send(out * VOLUME)
-    }
-}
-
 pub fn get_next_phase(phase : f32, time_step : f32, freq : f32) -> f32 {
     (phase + freq * time_step) % 1.0
 }
@@ -112,43 +96,40 @@ impl Oscillator for Fm {
 //         self.carrier.handle_input(event);
 //     }
 
-// pub struct GlideSin <T> where T: Oscillator {
-//     osc : T,
-//     time_step : f32,
-//     freq : f32,
-//     glide_secs : f32,
-// }
+pub struct GlideSin {
+    osc : Box<dyn Oscillator>,
+    time_step : f32,
+    freq : f32,
+    glide_secs : f32,
+}
 
-// impl<T> GlideSin <T> where T: Oscillator{
-//     pub fn set(&mut self,  glide_secs : f32) {
-//         self.glide_secs = glide_secs;
-//     }
-// }
+impl GlideSin {
+    pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, glide_secs : f32) -> Self {
+        GlideSin {
+            osc : oscillator_factory(sample_rate),
+            time_step : 1.0 / sample_rate as f32,
+            glide_secs : glide_secs,
+            freq : 0.0
+        }
+    }
 
-// impl<T> Oscillator for GlideSin <T> where T: Oscillator{
-//     fn new(sample_rate : u32) -> Self {
-//         GlideSin {
-//             osc : T::new(sample_rate),
-//             time_step : 1.0 / sample_rate as f32,
-//             glide_secs : 1.0,
-//             freq : 0.0
-//         }
-//     }
+    pub fn set(&mut self,  glide_secs : f32) {
+        self.glide_secs = glide_secs;
+    }
+}
 
-//     fn step(&mut self, target_freq : f32) -> f32 {
-//         if self.freq == 0.0 {
-//             self.freq = target_freq
-//         } else if self.freq != target_freq {
-//             self.freq += (target_freq - self.freq) * (self.time_step / self.glide_secs)
-//         }
+impl Oscillator for GlideSin {
 
-//         self.osc.step(self.freq)
-//     }
+    fn step(&mut self, target_freq : f32) -> f32 {
+        if self.freq == 0.0 {
+            self.freq = target_freq
+        } else if self.freq != target_freq {
+            self.freq += (target_freq - self.freq) * (self.time_step / self.glide_secs)
+        }
 
-//    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-//         self.osc.handle_input(event);
-//     }
-// }
+        self.osc.step(self.freq)
+    }
+}
 
 // pub struct BitCrush <T> where T: Oscillator {
 //     osc : T,

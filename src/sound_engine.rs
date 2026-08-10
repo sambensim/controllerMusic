@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, input_engine::FullInputEvent, instrument::{self, Instrument}, oscillator::{Fm, Oscillator, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
+use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, effect::{BitCrush, Delay, Noise}, input_engine::FullInputEvent, instrument::{self, Instrument}, oscillator::{Fm, GlideSin, Oscillator, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
 
 
 pub struct SoundEngine {
@@ -20,8 +20,25 @@ impl SoundEngine {
             chord_engine : chord_engine::ChordEngine::new(0, 4),
             freq_send : frequency_send_channel,
             instruments : vec![
-                Box::new(Instrument::new(sample_rate, |sr : u32| {Box::new(Fm::new(sr, |sr : u32| {Box::new(Sin::new(sr))}, 1.0, 2.0))}, |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager, vec![], 8)),
-                Box::new(Instrument::new(sample_rate, |sr : u32| {Box::new(Saw::new(sr))}, |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager, vec![], 8)),
+
+                Box::new(Instrument::new(sample_rate,
+                    |sr : u32| {Box::new(Fm::new(sr, |sr : u32| {Box::new(Sin::new(sr))}, 1.0, 2.0))},
+                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
+                    vec![Box::new(Delay::new(sample_rate, 0.2, 1.0)), Box::new(Delay::new(sample_rate, 0.2, 1.0)), Box::new(Delay::new(sample_rate, 0.2, 1.0))],
+                    8)),
+                
+                Box::new(Instrument::new(sample_rate,
+                    |sr : u32| {Box::new(Saw::new(sr))},
+                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
+                    vec![],
+                    8)),
+                
+                Box::new(Instrument::new(sample_rate,
+                    |sr : u32| {Box::new(GlideSin::new(sr,  |sr : u32| {Box::new(Sin::new(sr))}, 0.1))},
+                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
+                    vec![],
+                    8)),
+
                 ],
             selected_instrument : 0,
             current_chord : Vec::new(),
@@ -160,5 +177,17 @@ impl SoundEngine {
     pub fn send(&mut self, freq : f32) -> f32 {
         let _ = self.freq_send.send(freq);
         freq
+    }
+}
+
+pub fn get_process(mut sound_engine : SoundEngine) -> impl FnMut(f32, f32, f32) -> f32 {
+    move |_: f32, _: f32, _: f32| -> f32 {
+        sound_engine.handle_input();
+        let mut out : f32 = 0.0;
+        for instrument in &mut sound_engine.instruments {
+            out += instrument.step();
+        };
+        out *= 0.5_f32.sqrt().powi(sound_engine.instruments.len().max(1) as i32); //TODO, set by active instead of all
+        sound_engine.send(out)
     }
 }
