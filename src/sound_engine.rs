@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, input_engine::FullInputEvent, instrument::{self, Instrument}, oscillator::{Oscillator, Saw}, voice::Voice, voice_manager::{self, VoiceManager}};
+use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, input_engine::FullInputEvent, instrument::{self, Instrument}, oscillator::{Fm, Oscillator, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
 
 
 pub struct SoundEngine {
@@ -7,6 +7,7 @@ pub struct SoundEngine {
     chord_engine : chord_engine::ChordEngine,
     freq_send : mpsc::Sender<f32>,
     pub instruments : Vec<Box<Instrument>>,
+    pub selected_instrument : usize,
     pub current_chord : Vec<u8>,
     pub lead_note : u8,
 }
@@ -18,7 +19,11 @@ impl SoundEngine {
             controller_channel : controller_channel,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
             freq_send : frequency_send_channel,
-            instruments : vec![Box::new(Instrument::new(sample_rate, |sr : u32| {Box::new(Saw::new(sr))}, |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager, vec![], 8))],
+            instruments : vec![
+                Box::new(Instrument::new(sample_rate, |sr : u32| {Box::new(Fm::new(sr, |sr : u32| {Box::new(Sin::new(sr))}, 1.0, 2.0))}, |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager, vec![], 8)),
+                Box::new(Instrument::new(sample_rate, |sr : u32| {Box::new(Saw::new(sr))}, |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager, vec![], 8)),
+                ],
+            selected_instrument : 0,
             current_chord : Vec::new(),
             lead_note : 0,
         }
@@ -74,6 +79,10 @@ impl SoundEngine {
                 },
                 InputEvent::Button(ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
                 InputEvent::Button(ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
+                InputEvent::Button(ButtonType::PS, true) => {
+                    self.instruments[self.selected_instrument].release_all();
+                    self.selected_instrument = (self.selected_instrument + 1) % self.instruments.len()
+                },
                 _ => ()
             }
             for instr in &mut self.instruments {
@@ -84,7 +93,7 @@ impl SoundEngine {
     }
 
     fn release_note(&mut self, note : u8) {
-        self.instruments[0].release(note);
+        self.instruments[self.selected_instrument].release(note);
         // for v in self.voices.iter_mut() {
         //     if let Some(ni) = &mut v.note_info {
         //         if ni.note == note && ni.release.is_none() {
@@ -102,7 +111,7 @@ impl SoundEngine {
     }
 
     fn play_note(&mut self, note : u8) {
-        self.instruments[0].play(note);
+        self.instruments[self.selected_instrument].play(note);
         // let mut assigned : bool = false;
         // //check for voice already holding note
         // for v in self.voices.iter_mut() {
@@ -152,6 +161,4 @@ impl SoundEngine {
         let _ = self.freq_send.send(freq);
         freq
     }
-
-    pub const MAX_NOTES : usize = 8;
 }

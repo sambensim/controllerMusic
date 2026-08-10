@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use crate::{sound_engine::SoundEngine};
 
 const VOLUME : f32 = 1.0;
@@ -42,63 +44,61 @@ impl Oscillator for Saw {
     }
 }
 
-// pub struct Sin {
-//     phase : f32,
-//     time_step : f32,
-// }
+pub struct Sin {
+    phase : f32,
+    time_step : f32,
+}
 
-// impl Oscillator for Sin {
-//     fn new(sample_rate : u32) -> Self {
-//         Sin {
-//             phase : 0.0,
-//             time_step : 1.0 / sample_rate as f32,
-//         }
-//     }
+impl Sin {
+    pub fn new(sample_rate : u32) -> Self {
+        Sin {
+            phase : 0.0,
+            time_step : 1.0 / sample_rate as f32,
+        }
+    }
+}
+impl Oscillator for Sin {
+    fn step(&mut self, freq : f32) -> f32 {
+        self.phase = get_next_phase(self.phase, self.time_step, freq);
+        (self.phase*2.0*PI).sin()
+    }
+}
 
-//     fn step(&mut self, freq : f32) -> f32 {
-//         self.phase = self.get_next_phase(self.phase, self.time_step, freq);
-//         (self.phase*2.0*PI).sin()
-//     }
+pub struct Fm {
+    carrier : Box<dyn Oscillator>,
+    modulator_phase : f32,
+    time_step : f32,
+    ratio : f32,
+    modulation_amplitude : f32,
+    target_modulation_amplitude : f32,
+}
 
-//     fn handle_input(&mut self, _event : crate::controller::InputEvent) {}
-// }
+impl Fm {
+    pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, ratio : f32, amplitude : f32) -> Self {
+        Fm {
+            carrier : oscillator_factory(sample_rate),
+            modulator_phase : 0.0,
+            time_step : 1.0 / sample_rate as f32,
+            ratio : ratio,
+            modulation_amplitude : amplitude,
+            target_modulation_amplitude : amplitude,
+        }
+    }
+    pub fn set(&mut self, ratio : f32, modulation_amplitude : f32) {
+        self.ratio = ratio;
+        self.target_modulation_amplitude = modulation_amplitude;
+    }
+}
 
-// pub struct Fm <T> where T: Oscillator {
-//     carrier : T,
-//     modulator_phase : f32,
-//     time_step : f32,
-//     ratio : f32,
-//     modulation_amplitude : f32,
-//     target_modulation_amplitude : f32,
-// }
+impl Oscillator for Fm {
+    fn step(&mut self, freq : f32) -> f32 {
+        self.modulation_amplitude += (self.target_modulation_amplitude - self.modulation_amplitude) * 0.001; //0.001 == smoothing amt
+        self.modulator_phase = get_next_phase(self.modulator_phase, self.time_step, self.ratio * freq);
+        let modulator_sin = self.modulation_amplitude * (self.modulator_phase * 2.0 * PI).sin();
 
-// impl <T>Fm <T> where T: Oscillator{
-//     pub fn set(&mut self, ratio : f32, modulation_amplitude : f32) {
-//         self.ratio = ratio;
-//         self.target_modulation_amplitude = modulation_amplitude;
-//     }
-// }
-
-// impl <T>Oscillator for Fm <T> where T: Oscillator{
-//     fn new(sample_rate : u32) -> Self {
-//         Fm {
-//             carrier : T::new(sample_rate),
-//             modulator_phase : 0.0,
-//             time_step : 1.0 / sample_rate as f32,
-//             ratio : 0.5,
-//             modulation_amplitude : 0.0,
-//             target_modulation_amplitude : 0.0,
-//         }
-//     }
-
-//     fn step(&mut self, freq : f32) -> f32 {
-//         self.modulation_amplitude += (self.target_modulation_amplitude - self.modulation_amplitude) * 0.001; //0.001 == smoothing amt
-//         self.modulator_phase = self.get_next_phase(self.modulator_phase, self.time_step, self.ratio * freq);
-//         let modulator_sin = self.modulation_amplitude * (self.modulator_phase * 2.0 * PI).sin();
-
-//         (self.carrier.step(freq) + modulator_sin).sin()
-//     }
-
+        (self.carrier.step(freq) + modulator_sin).sin()
+    }
+}
 //    fn handle_input(&mut self, event : crate::controller::InputEvent) {
 //         match event {
 //             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(self.ratio, v * 4.0),
@@ -111,7 +111,6 @@ impl Oscillator for Saw {
 //         };
 //         self.carrier.handle_input(event);
 //     }
-// }
 
 // pub struct GlideSin <T> where T: Oscillator {
 //     osc : T,
@@ -180,34 +179,6 @@ impl Oscillator for Saw {
 //             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::RightTrigger, v) => self.set(66 - (v * 64.0) as u32),
 //             _ => ()
 //         };
-//    }
-// }
-
-// pub struct Noise <T> where T: Oscillator {
-//     osc : T,
-//     wetness : f32,
-// }
-
-// impl<T> Noise <T> where T: Oscillator{
-//     pub fn set(&mut self,  wetness : f32) {
-//         self.wetness = wetness;
-//     }
-// }
-
-// impl<T> Oscillator for Noise <T> where T: Oscillator{
-//     fn new(sample_rate : u32) -> Self {
-//         Noise {
-//             osc : T::new(sample_rate),
-//             wetness : 0.08,
-//         }
-//     }
-
-//     fn step(&mut self, freq : f32) -> f32 {
-//         self.osc.step(freq) * (1.0 - self.wetness) + self.wetness * (fastrand::f32_inclusive() * 2.0 - 1.0)
-//     }
-
-//    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-//         self.osc.handle_input(event);
 //    }
 // }
 

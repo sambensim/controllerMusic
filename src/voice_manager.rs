@@ -41,6 +41,14 @@ impl Voicebank {
         }
     }
 
+    pub fn release_all(&mut self) {
+        for v in self.voices.iter_mut() {
+            if let Some(ni) = &v.note_info {
+                v.release()
+            }
+        }
+    }
+
     pub fn step(&mut self) -> f32 {
         let mut out = 0_f32;
         for v in self.voices.iter_mut() {

@@ -32,37 +32,8 @@ impl Instrument {
     pub fn release(&mut self, note : u8) {
         self.voicebank.release(note);
     }
+
+    pub fn release_all(&mut self) {
+        self.voicebank.release_all();
+    }
 }
-
-// pub struct Saw4 {
-//     voicebank : [Voice; Self::POLYPHONY]
-// }
-
-// impl Saw4 {
-//     const POLYPHONY : usize = 4;
-
-//     fn new(voice_manager : &mut VoiceManager) -> Self {
-//         let voicebank : [Voice; Self::POLYPHONY] = std::array::from_fn(|_| voice_manager.request_voice().unwrap());
-//         Saw4{
-//             voicebank : voicebank
-//         }
-//     }
-// }
-
-// impl Instrument for Saw4 {
-//     fn step(&mut self) -> f32 {
-//         todo!()
-//     }
-
-//     fn handle_input(&mut self, event : &FullInputEvent) {
-//         todo!()
-//     }
-
-//     fn play(&mut self, note : u8) {
-//         todo!()
-//     }
-
-//     fn release(&mut self, note : u8) {
-//         todo!()
-//     }
-// }
