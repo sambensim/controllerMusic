@@ -1,4 +1,6 @@
-use crate::dualshock::DS4;
+use raylib::drawing::RaylibDraw as _;
+
+use crate::display_engine::DisplayEngine;
 
 mod dualshock;
 mod visuals;
@@ -17,7 +19,21 @@ mod voice;
 mod voice_manager;
 
 fn main() {
-    let input_engine = input_engine::InputEngine::init::<DS4>();
-    let samp_channel = sound::do_sound(input_engine.subscribe());
-    visuals::run(samp_channel, input_engine.subscribe(), input_engine);
+    let mut input_engine = input_engine::InputEngine::init::<crate::dualshock::DS4>();
+    let mut display_engine : DisplayEngine = DisplayEngine::init();
+   
+    display_engine.setup(input_engine.subscribe(), sound::do_sound(input_engine.subscribe()));
+
+    let (mut rl, thread) = raylib::init()
+        .size(DisplayEngine::WIDTH as i32, DisplayEngine::HEIGHT as i32)
+        .title("Contoller Music")
+        .build();
+    
+    while !rl.window_should_close() {
+        let mut d = rl.begin_drawing(&thread);
+        d.clear_background(raylib::ffi::Color::WHITE);
+        input_engine.step();
+        display_engine.handle_input();
+        visuals::handle_visuals(d, &mut display_engine);
+    }
 }

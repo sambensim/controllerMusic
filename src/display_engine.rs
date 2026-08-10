@@ -1,70 +1,77 @@
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, input_engine::FullInputEvent, intermediate_controller_state};
+use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, display_engine::Visual::Main, input_engine::FullInputEvent, intermediate_controller_state};
+
+pub enum Visual {
+    Setup,
+    Main
+}
 
 pub struct DisplayEngine {
-    controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>,
+    controller_channel : Option<tokio::sync::broadcast::Receiver<FullInputEvent>>,
     chord_engine : chord_engine::ChordEngine,
-    samp_channel : Receiver<f32>,
+    samp_channel : Option<Receiver<f32>>,
     samples : VecDeque<f32>,
     pub current_chord : String,
     pub selected_chord : String,
+    pub current_visual : Visual
 }
 
 impl DisplayEngine {
-    pub fn init(controller_channel: tokio::sync::broadcast::Receiver<FullInputEvent>, samp_channel : Receiver<f32>) -> Self {
+    pub fn init() -> Self {
         DisplayEngine {
-            controller_channel : controller_channel,
+            controller_channel : None,
             chord_engine : chord_engine::ChordEngine::new(0, 4),
-            samp_channel : samp_channel,
+            samp_channel : None,
             samples : VecDeque::from([0.0_f32; DisplayEngine::SAMPLE_CAPACITY]),
             current_chord : "None".to_string(),
             selected_chord : "None".to_string(),
+            current_visual : Visual::Setup,
         }
     }
 
     pub fn handle_input(&mut self) {
-        let mut possible_event = self.controller_channel.try_recv();
-        while !possible_event.is_err() {
-            let event = possible_event.unwrap();
-            match event.event_info {
-                // InputEvent::Discrete(DiscreteType::TouchX, v) => {
-                //     println!("{v}")
-                // }
-                // InputEvent::Button(ButtonType::Touch, true) => self.play
-                InputEvent::Button(ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
-                InputEvent::Button(ButtonType::Share, true) => self.chord_engine.increment_key(),
-                InputEvent::Button(ButtonType::Options, true) => self.chord_engine.increment_octave(),
-                InputEvent::Button(ButtonType::LStickBtn, true) => {
-                    self.chord_engine.decrement_key();
-                    self.chord_engine.decrement_octave();
-                },
-                InputEvent::Button(ButtonType::LStickBtn, false) => {
-                    self.chord_engine.increment_key();
-                    self.chord_engine.increment_octave();
-                },
-                InputEvent::Button(ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
-                InputEvent::Button(ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
-                _ => ()//println!("{:?}", event.event_info)
-            }
-            possible_event = self.controller_channel.try_recv();
-            self.selected_chord = self.get_selected_chord(&event.full_state);
-        };
+        if let Some(controller) = &mut self.controller_channel {
+            let mut possible_event = controller.try_recv();
+            while !possible_event.is_err() {
+                let event = possible_event.unwrap();
+                match event.event_info {
+                    InputEvent::Button(ButtonType::RBumper, true) => self.current_chord = Self::get_selected_chord(&self.chord_engine, &event.full_state),
+                    InputEvent::Button(ButtonType::Share, true) => self.chord_engine.increment_key(),
+                    InputEvent::Button(ButtonType::Options, true) => self.chord_engine.increment_octave(),
+                    InputEvent::Button(ButtonType::LStickBtn, true) => {
+                        self.chord_engine.decrement_key();
+                        self.chord_engine.decrement_octave();
+                    },
+                    InputEvent::Button(ButtonType::LStickBtn, false) => {
+                        self.chord_engine.increment_key();
+                        self.chord_engine.increment_octave();
+                    },
+                    InputEvent::Button(ButtonType::RStickBtn, true) => self.chord_engine.increment_key(),
+                    InputEvent::Button(ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
+                    _ => ()//println!("{:?}", event.event_info)
+                }
+                possible_event = controller.try_recv();
+                self.selected_chord = Self::get_selected_chord(&self.chord_engine, &event.full_state);
+            };
+        }
     }
 
-    fn get_selected_chord(&self, full_state : &intermediate_controller_state::IntermediateControllerState) -> String {
+    fn get_selected_chord(chord_engine : &ChordEngine, full_state : &intermediate_controller_state::IntermediateControllerState) -> String {
         if full_state.quantize(DiscreteType::Left, 8) == -1 { "None".to_string() } else {
-            chord_engine::ChordEngine::get_chord_name(self.chord_engine.get_key_value(), full_state.quantize(DiscreteType::Left, 8) as i32, full_state.quantize(DiscreteType::Right, 8) as i32)
+            chord_engine::ChordEngine::get_chord_name(chord_engine.get_key_value(), full_state.quantize(DiscreteType::Left, 8) as i32, full_state.quantize(DiscreteType::Right, 8) as i32)
         }
     }
 
     pub fn get_samples(&mut self) -> &VecDeque<f32> {
-        let mut samp = self.samp_channel.try_recv();
-        while !samp.is_err() {
-            self.samples.push_front(samp.unwrap());
-            samp = self.samp_channel.try_recv();
+        if let Some(samp_channel) = &self.samp_channel {
+            let mut samp = samp_channel.try_recv();
+            while !samp.is_err() {
+                self.samples.push_front(samp.unwrap());
+                samp = samp_channel.try_recv();
+            }
+            self.samples.truncate(DisplayEngine::SAMPLE_CAPACITY);
         }
-        self.samples.truncate(DisplayEngine::SAMPLE_CAPACITY);
         &self.samples
     }
 
@@ -78,6 +85,12 @@ impl DisplayEngine {
 
     pub fn get_key_notes(&self) -> Vec<String> {
         ChordEngine::get_key_notes(self.chord_engine.get_key_value())
+    }
+
+    pub fn setup(&mut self, controller_channel : tokio::sync::broadcast::Receiver<FullInputEvent>, samp_channel : Receiver<f32>) {
+        self.controller_channel = Some(controller_channel);
+        self.samp_channel = Some(samp_channel);
+        self.current_visual = Main;
     }
 
     pub const SAMPLE_CAPACITY : usize = 1000;
