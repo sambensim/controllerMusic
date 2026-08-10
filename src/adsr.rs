@@ -28,7 +28,7 @@ impl Adsr {
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> f32{
         match self.phase {
             AdsrPhase::Attack => {
                 self.level = (self.level + (1.0 / self.atime_secs) / self.sample_rate as f32).min(1.0);
@@ -49,6 +49,7 @@ impl Adsr {
                 self.level = (self.level - (1.0 / self.rtime_secs) / self.sample_rate as f32).max(0.0);
             }
         }
+        self.level
     }
 
     pub fn trigger(&mut self) {

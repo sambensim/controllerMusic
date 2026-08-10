@@ -4,7 +4,7 @@ use cpal::{
     SizedSample, StreamConfig, I24,
 };
 use std::{sync::mpsc::{self, Receiver}};
-use crate::{input_engine::FullInputEvent, synths};
+use crate::{input_engine::FullInputEvent, oscillator};
 use crate::sound_engine::SoundEngine;
 
 
@@ -119,7 +119,7 @@ pub fn do_sound(controller_channel : tokio::sync::broadcast::Receiver<FullInputE
     
     let (sender, receiver) = mpsc::channel();
     let sound_engine = SoundEngine::init(controller_channel, sender, sample_rate);
-    let sound_process = synths::get_process(sound_engine);
+    let sound_process = oscillator::get_process(sound_engine);
     let next_value = sound_main(sample_rate, sound_process);
 
     std::thread::spawn(move || {

@@ -137,7 +137,7 @@ impl ChordEngine {
         440.0 * 2.0_f32.powf((value as f32 - 69.0) / 12.0)
     }
 
-    pub fn note_to_freq(note: &str) -> Result<f32, String> {
+    pub fn _note_to_freq(note: &str) -> Result<f32, String> {
         Ok(Self::value_to_freq(Self::note_to_value(note)?))
     }
 

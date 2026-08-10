@@ -61,10 +61,10 @@ impl IntermediateControllerState {
                 get_vec_section(self.right_stick_x, self.right_stick_y, regions)
             },
             DiscreteType::TouchX => {
-                (self.touchpad_x * (regions as f32)) as i8
+                ((self.touchpad_x * (regions as f32)) as i8).clamp(0, 7)
             },
             DiscreteType::TouchY => {
-                (self.touchpad_y * (regions as f32)) as i8
+                ((self.touchpad_y * (regions as f32)) as i8).clamp(0, 7)
             },
             _ => -1
         };

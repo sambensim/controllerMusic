@@ -28,9 +28,9 @@ impl DisplayEngine {
         while !possible_event.is_err() {
             let event = possible_event.unwrap();
             match event.event_info {
-                InputEvent::Discrete(DiscreteType::TouchX, v) => {
-                    println!("{v}")
-                }
+                // InputEvent::Discrete(DiscreteType::TouchX, v) => {
+                //     println!("{v}")
+                // }
                 // InputEvent::Button(ButtonType::Touch, true) => self.play
                 InputEvent::Button(ButtonType::RBumper, true) => self.current_chord = self.get_selected_chord(&event.full_state),
                 InputEvent::Button(ButtonType::Share, true) => self.chord_engine.increment_key(),
