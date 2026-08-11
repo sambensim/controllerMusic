@@ -18,16 +18,9 @@ impl Voice {
         }
     }
 
-    // pub fn hold(&mut self) {
-    //     self.locks += 1;
-    // }
-
     pub fn release(&mut self) {
-        // self.locks -= 1;
-        // if self.locks == 0 {
         self.env.release();
         self.note_info.as_mut().unwrap().release = Some(std::time::Instant::now());
-        // }
     }
 
     pub fn play(&mut self, note : u8) {
@@ -35,7 +28,6 @@ impl Voice {
             note: note, release: None,
         });
         self.env.trigger();
-        // self.hold()
     }
 
     pub fn step(&mut self) -> f32 {

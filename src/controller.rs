@@ -1,14 +1,30 @@
 use hidapi::HidDevice;
 
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum InputSource {
+    Discrete(DiscreteType),
+    Continuous(ContinuousType),
+    Button(ButtonType),
+}
 
 #[derive(Copy, Clone, Debug)]
 pub enum InputEvent {
-    Discrete(DiscreteType, i8),
+    Discrete(DiscreteType, i8, u8),
     Continuous(ContinuousType, f32),
     Button(ButtonType, bool),
 }
 
-#[derive(Copy, Clone, Debug)]
+impl InputEvent {
+    pub fn split(&self) -> (InputSource, f32) {
+        match self {
+            InputEvent::Discrete(t, v, r) => (InputSource::Discrete(*t), (*v as f32) / (*r as f32)),
+            InputEvent::Continuous(t, v) => (InputSource::Continuous(*t), *v),
+            InputEvent::Button(t, b) => (InputSource::Button(*t), if *b {1.0} else {0.0}),
+        }
+    }
+}
+
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum DiscreteType {
     Left,
     Right,
@@ -17,7 +33,7 @@ pub enum DiscreteType {
     TouchY,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum ContinuousType {
     LeftTrigger,
     RightTrigger,

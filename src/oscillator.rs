@@ -1,10 +1,36 @@
 use std::f32::consts::PI;
 
+use crate::instrument::ParamInfo;
+
 pub fn get_next_phase(phase : f32, time_step : f32, freq : f32) -> f32 {
     (phase + freq * time_step) % 1.0
 }
 pub trait Oscillator : Send {
     fn step(&mut self, freq : f32) -> f32;
+
+    fn params(&self) -> &'static [ParamInfo];
+
+    fn set_param(&mut self, index : usize, value : f32);
+}
+
+macro_rules! osc_params { //AI
+    ($ty:ty { $($name:literal => $field:ident [$min:expr, $max:expr, $default:expr]),* $(,)? }) => {
+        impl $ty {
+            pub const PARAMS: &'static [ParamInfo] = &[
+                $(ParamInfo { name: $name, min: $min, max: $max, default: $default },)*
+            ];
+
+            fn set_indexed(&mut self, index: usize, value: f32) {
+                let mut i = 0usize;
+                $(
+                    if index == i { self.$field = value; return; }
+                    i += 1;
+                )*
+                let _ = i;
+                debug_assert!(false, "param index {} out of range", index);
+            }
+        }
+    };
 }
 
 pub struct Saw {
@@ -20,13 +46,23 @@ impl Saw {
         }
     }
 }
+osc_params!(Saw {});
 
 impl Oscillator for Saw {
     fn step(&mut self, freq : f32) -> f32 {
         self.phase = get_next_phase(self.phase, self.time_step, freq);
         self.phase*2.0 - 1.0
     }
+
+    fn params(&self) -> &'static [ParamInfo] {
+        Self::PARAMS
+    }
+
+    fn set_param(&mut self, index: usize, value: f32) {
+        self.set_indexed(index, value)
+    }
 }
+
 
 pub struct Sin {
     phase : f32,
@@ -41,10 +77,20 @@ impl Sin {
         }
     }
 }
+osc_params!(Sin {});
+
 impl Oscillator for Sin {
     fn step(&mut self, freq : f32) -> f32 {
         self.phase = get_next_phase(self.phase, self.time_step, freq);
         (self.phase*2.0*PI).sin()
+    }
+
+    fn params(&self) -> &'static [ParamInfo] {
+        Self::PARAMS
+    }
+
+    fn set_param(&mut self, index: usize, value: f32) {
+        self.set_indexed(index, value)
     }
 }
 
@@ -58,21 +104,21 @@ pub struct Fm {
 }
 
 impl Fm {
-    pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, ratio : f32, amplitude : f32) -> Self {
+    pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>) -> Self {
         Fm {
             carrier : oscillator_factory(sample_rate),
             modulator_phase : 0.0,
             time_step : 1.0 / sample_rate as f32,
-            ratio : ratio,
-            modulation_amplitude : amplitude,
-            target_modulation_amplitude : amplitude,
+            ratio : 0.0,
+            modulation_amplitude : 0.0,
+            target_modulation_amplitude : 0.0,
         }
     }
-    pub fn set(&mut self, ratio : f32, modulation_amplitude : f32) {
-        self.ratio = ratio;
-        self.target_modulation_amplitude = modulation_amplitude;
-    }
 }
+osc_params!(Fm {
+    "ratio"      => ratio [0.0, 4.0,  1.0],
+    "amplitude"  => target_modulation_amplitude [0.0, PI, 0.5],
+});
 
 impl Oscillator for Fm {
     fn step(&mut self, freq : f32) -> f32 {
@@ -82,120 +128,164 @@ impl Oscillator for Fm {
 
         (self.carrier.step(freq) + modulator_sin).sin()
     }
-}
-//    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-//         match event {
-//             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(self.ratio, v * 4.0),
-//             crate::controller::InputEvent::Button(crate::controller::ButtonType::RBumper, true) => {
-//                 let n = 1.0;//[0.25, 0.5, 1.0][fastrand::usize(0..3)];
-//                 println!("{n}");
-//                 self.set( n, self.modulation_amplitude)
-//             },
-//             _ => ()
-//         };
-//         self.carrier.handle_input(event);
-//     }
 
-pub struct GlideSin {
-    osc : Box<dyn Oscillator>,
-    time_step : f32,
-    freq : f32,
-    glide_secs : f32,
-}
-
-impl GlideSin {
-    pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, glide_secs : f32) -> Self {
-        GlideSin {
-            osc : oscillator_factory(sample_rate),
-            time_step : 1.0 / sample_rate as f32,
-            glide_secs : glide_secs,
-            freq : 0.0
-        }
+    fn params(&self) -> &'static [ParamInfo] {
+        Self::PARAMS
     }
 
-    pub fn set(&mut self,  glide_secs : f32) {
-        self.glide_secs = glide_secs;
+    fn set_param(&mut self, index: usize, value: f32) {
+        self.set_indexed(index, value)
     }
 }
 
-impl Oscillator for GlideSin {
-
-    fn step(&mut self, target_freq : f32) -> f32 {
-        if self.freq == 0.0 {
-            self.freq = target_freq
-        } else if self.freq != target_freq {
-            self.freq += (target_freq - self.freq) * (self.time_step / self.glide_secs)
-        }
-
-        self.osc.step(self.freq)
-    }
-}
-
-// pub struct BitCrush <T> where T: Oscillator {
-//     osc : T,
-//     quantize_steps : u32,
+// pub struct Fm {
+//     carrier : Box<dyn Oscillator>,
+//     modulator_phase : f32,
+//     time_step : f32,
+//     ratio : f32,
+//     modulation_amplitude : f32,
+//     target_modulation_amplitude : f32,
 // }
 
-// impl<T> BitCrush <T> where T: Oscillator{
-//     pub fn set(&mut self,  quantize_steps : u32) {
-//         self.quantize_steps = quantize_steps;
+// impl Fm {
+//     pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, ratio : f32, amplitude : f32) -> Self {
+//         Fm {
+//             carrier : oscillator_factory(sample_rate),
+//             modulator_phase : 0.0,
+//             time_step : 1.0 / sample_rate as f32,
+//             ratio : ratio,
+//             modulation_amplitude : amplitude,
+//             target_modulation_amplitude : amplitude,
+//         }
+//     }
+//     pub fn set(&mut self, ratio : f32, modulation_amplitude : f32) {
+//         self.ratio = ratio;
+//         self.target_modulation_amplitude = modulation_amplitude;
 //     }
 // }
 
-// impl<T> Oscillator for BitCrush <T> where T: Oscillator{
-//     fn new(sample_rate : u32) -> Self {
-//         BitCrush {
-//             osc : T::new(sample_rate),
-//             quantize_steps : 66,
+// impl Oscillator for Fm {
+//     fn step(&mut self, freq : f32) -> f32 {
+//         self.modulation_amplitude += (self.target_modulation_amplitude - self.modulation_amplitude) * 0.001; //0.001 == smoothing amt
+//         self.modulator_phase = get_next_phase(self.modulator_phase, self.time_step, self.ratio * freq);
+//         let modulator_sin = self.modulation_amplitude * (self.modulator_phase * 2.0 * PI).sin();
+
+//         (self.carrier.step(freq) + modulator_sin).sin()
+//     }
+// }
+// //    fn handle_input(&mut self, event : crate::controller::InputEvent) {
+// //         match event {
+// //             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(self.ratio, v * 4.0),
+// //             crate::controller::InputEvent::Button(crate::controller::ButtonType::RBumper, true) => {
+// //                 let n = 1.0;//[0.25, 0.5, 1.0][fastrand::usize(0..3)];
+// //                 println!("{n}");
+// //                 self.set( n, self.modulation_amplitude)
+// //             },
+// //             _ => ()
+// //         };
+// //         self.carrier.handle_input(event);
+// //     }
+
+// pub struct GlideSin {
+//     osc : Box<dyn Oscillator>,
+//     time_step : f32,
+//     freq : f32,
+//     glide_secs : f32,
+// }
+
+// impl GlideSin {
+//     pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, glide_secs : f32) -> Self {
+//         GlideSin {
+//             osc : oscillator_factory(sample_rate),
+//             time_step : 1.0 / sample_rate as f32,
+//             glide_secs : glide_secs,
+//             freq : 0.0
 //         }
 //     }
 
-//     fn step(&mut self, freq : f32) -> f32 {
-//         ((self.osc.step(freq) * self.quantize_steps as f32) as u32) as f32 / self.quantize_steps as f32
-//     }
-
-//    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-//         self.osc.handle_input(event);
-//         match event {
-//             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::RightTrigger, v) => self.set(66 - (v * 64.0) as u32),
-//             _ => ()
-//         };
-//    }
-// }
-
-
-// pub struct Gain <T> where T: Oscillator {
-//     osc : T,
-//     coefficient : f32,
-// }
-
-// impl<T> Gain <T> where T: Oscillator{
-//     pub fn set(&mut self,  coefficient : f32) {
-//         self.coefficient = coefficient;
+//     pub fn set(&mut self,  glide_secs : f32) {
+//         self.glide_secs = glide_secs;
 //     }
 // }
 
-// impl<T> Oscillator for Gain <T> where T: Oscillator{
-//     fn new(sample_rate : u32) -> Self {
-//         Gain {
-//             osc : T::new(sample_rate),
-//             coefficient : 1.0,
+// impl Oscillator for GlideSin {
+
+//     fn step(&mut self, target_freq : f32) -> f32 {
+//         if self.freq == 0.0 {
+//             self.freq = target_freq
+//         } else if self.freq != target_freq {
+//             self.freq += (target_freq - self.freq) * (self.time_step / self.glide_secs)
 //         }
-//     }
 
-//     fn step(&mut self, freq : f32) -> f32 {
-//         self.osc.step(freq) * self.coefficient
+//         self.osc.step(self.freq)
 //     }
-
-//    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-//         self.osc.handle_input(event);
-//    }
 // }
 
-// /*
-// delay / echo
-// detuned oscillators / detuned pairs (detune fm params?)
-// live envelope change
-// lfos to hook into other params
-// change chord voicing with touchpad
-// */
+// // pub struct BitCrush <T> where T: Oscillator {
+// //     osc : T,
+// //     quantize_steps : u32,
+// // }
+
+// // impl<T> BitCrush <T> where T: Oscillator{
+// //     pub fn set(&mut self,  quantize_steps : u32) {
+// //         self.quantize_steps = quantize_steps;
+// //     }
+// // }
+
+// // impl<T> Oscillator for BitCrush <T> where T: Oscillator{
+// //     fn new(sample_rate : u32) -> Self {
+// //         BitCrush {
+// //             osc : T::new(sample_rate),
+// //             quantize_steps : 66,
+// //         }
+// //     }
+
+// //     fn step(&mut self, freq : f32) -> f32 {
+// //         ((self.osc.step(freq) * self.quantize_steps as f32) as u32) as f32 / self.quantize_steps as f32
+// //     }
+
+// //    fn handle_input(&mut self, event : crate::controller::InputEvent) {
+// //         self.osc.handle_input(event);
+// //         match event {
+// //             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::RightTrigger, v) => self.set(66 - (v * 64.0) as u32),
+// //             _ => ()
+// //         };
+// //    }
+// // }
+
+
+// // pub struct Gain <T> where T: Oscillator {
+// //     osc : T,
+// //     coefficient : f32,
+// // }
+
+// // impl<T> Gain <T> where T: Oscillator{
+// //     pub fn set(&mut self,  coefficient : f32) {
+// //         self.coefficient = coefficient;
+// //     }
+// // }
+
+// // impl<T> Oscillator for Gain <T> where T: Oscillator{
+// //     fn new(sample_rate : u32) -> Self {
+// //         Gain {
+// //             osc : T::new(sample_rate),
+// //             coefficient : 1.0,
+// //         }
+// //     }
+
+// //     fn step(&mut self, freq : f32) -> f32 {
+// //         self.osc.step(freq) * self.coefficient
+// //     }
+
+// //    fn handle_input(&mut self, event : crate::controller::InputEvent) {
+// //         self.osc.handle_input(event);
+// //    }
+// // }
+
+// // /*
+// // delay / echo
+// // detuned oscillators / detuned pairs (detune fm params?)
+// // live envelope change
+// // lfos to hook into other params
+// // change chord voicing with touchpad
+// // */

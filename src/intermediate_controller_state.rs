@@ -25,19 +25,19 @@ pub struct IntermediateControllerState {
 impl IntermediateControllerState {
     pub fn get_events(&self, new_state : Self) -> impl Iterator<Item = InputEvent> {
         let left = (self.quantize(DiscreteType::Left, 8) != (new_state.quantize(DiscreteType::Left, 8)))
-            .then(|| InputEvent::Discrete(DiscreteType::Left, new_state.quantize(DiscreteType::Left, 8)))
+            .then(|| InputEvent::Discrete(DiscreteType::Left, new_state.quantize(DiscreteType::Left, 8), 8))
             .into_iter();
         let right =  (self.quantize(DiscreteType::Right, 8) != (new_state.quantize(DiscreteType::Right, 8)))
-            .then(|| InputEvent::Discrete(DiscreteType::Right, new_state.quantize(DiscreteType::Right, 8)))
+            .then(|| InputEvent::Discrete(DiscreteType::Right, new_state.quantize(DiscreteType::Right, 8), 8))
             .into_iter();
         let dpad = (self.dpad != new_state.dpad)
-            .then(|| InputEvent::Discrete(DiscreteType::Dpad, new_state.dpad))
+            .then(|| InputEvent::Discrete(DiscreteType::Dpad, new_state.dpad, 8))
             .into_iter();
         let touch_x = (self.quantize(DiscreteType::TouchX, 8) != new_state.quantize(DiscreteType::TouchX, 8))
-            .then(|| InputEvent::Discrete(DiscreteType::TouchX, new_state.quantize(DiscreteType::TouchX, 8)))
+            .then(|| InputEvent::Discrete(DiscreteType::TouchX, new_state.quantize(DiscreteType::TouchX, 8), 8))
             .into_iter();
         let touch_y = (self.quantize(DiscreteType::TouchY, 8) != new_state.quantize(DiscreteType::TouchY, 8))
-            .then(|| InputEvent::Discrete(DiscreteType::TouchY, new_state.quantize(DiscreteType::TouchY, 8)))
+            .then(|| InputEvent::Discrete(DiscreteType::TouchY, new_state.quantize(DiscreteType::TouchY, 8), 8))
             .into_iter();
         let buttons = self.button_events(new_state);
         let left_trigger = (self.l_trigger != new_state.l_trigger)

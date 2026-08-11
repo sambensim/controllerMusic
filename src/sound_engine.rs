@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, effect::{BitCrush, Delay, Noise}, input_engine::FullInputEvent, instrument::{self, Instrument}, oscillator::{Fm, GlideSin, Oscillator, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
+use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, Target}, oscillator::{Fm, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
 
 
 pub struct SoundEngine {
@@ -22,23 +22,34 @@ impl SoundEngine {
             instruments : vec![
 
                 Box::new(Instrument::new(sample_rate,
-                    |sr : u32| {Box::new(Fm::new(sr, |sr : u32| {Box::new(Sin::new(sr))}, 1.0, 2.0))},
+                    "Fm+Delay",
+                    |sr : u32| {Box::new(Fm::new(sr, |sr : u32| {Box::new(Sin::new(sr))}))},
                     |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
-                    vec![Box::new(Delay::new(sample_rate, 0.2, 1.0)), Box::new(Delay::new(sample_rate, 0.2, 1.0)), Box::new(Delay::new(sample_rate, 0.2, 1.0))],
-                    8)),
+                    vec![
+                        // ("delay", Box::new(Delay::new(sample_rate, 1.0))),
+                        // ("delay", Box::new(Delay::new(sample_rate, 1.0))),
+                        // ("delay", Box::new(Delay::new(sample_rate, 1.0))),
+                        ],
+                    &mut vec![
+                        InputMapSpec {
+                            target : Target::Osc,
+                            param : "amplitude",
+                            input : InputSource::Continuous(LeftTrigger),
+                            response : instrument::Curve::Linear(),
+                        }
+                    ],
+                    8,
+                )),
                 
                 Box::new(Instrument::new(sample_rate,
+                    "Saw",
                     |sr : u32| {Box::new(Saw::new(sr))},
                     |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
                     vec![],
-                    8)),
-                
-                Box::new(Instrument::new(sample_rate,
-                    |sr : u32| {Box::new(GlideSin::new(sr,  |sr : u32| {Box::new(Sin::new(sr))}, 0.1))},
-                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
-                    vec![],
-                    8)),
-
+                    &mut vec![],
+                    8,
+                )),
+            
                 ],
             selected_instrument : 0,
             current_chord : Vec::new(),
@@ -100,11 +111,13 @@ impl SoundEngine {
                     self.instruments[self.selected_instrument].release_all();
                     self.selected_instrument = (self.selected_instrument + 1) % self.instruments.len()
                 },
-                _ => ()
+                _ => {
+                    for instr in &mut self.instruments {
+                        instr.handle_input(&event.event_info);
+                    }
+                }
             }
-            for instr in &mut self.instruments {
-                instr.handle_input(&event);
-            }
+            
             possible_event = self.controller_channel.try_recv();
         };
     }

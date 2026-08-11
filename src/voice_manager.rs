@@ -9,13 +9,23 @@ impl VoiceManager {
     }
 
     pub fn request_voicebank(&mut self, sample_rate : u32, amount : usize, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, envelope_factory : impl Fn(u32) -> Adsr) -> Result<Voicebank, String> {
-        return Ok(Voicebank {
+        let mut out = Voicebank {
             voices : (0..amount).map(|_| Voice {
                 note_info : None,
                 osc : oscillator_factory(sample_rate),
                 env : envelope_factory(sample_rate),
             }).collect()
-        })
+        };
+        for v in out.voices.iter_mut() {
+            Self::seed_defaults(v.osc.as_mut());
+        }
+        Ok(out)
+    }
+
+    fn seed_defaults(osc: &mut dyn Oscillator) {
+        for (i, info) in osc.params().iter().enumerate() {
+            osc.set_param(i, info.default);
+        }
     }
 }
 
@@ -77,5 +87,15 @@ impl Voicebank {
         }
         println!("max voices exceeded");
         0
+    }
+
+    pub fn set(&mut self, param_index : usize, value : f32) {
+        for v in self.voices.iter_mut() {
+            v.osc.set_param(param_index, value);
+        }
+    }
+
+    pub fn params(&self) -> &'static [crate::instrument::ParamInfo] {
+        self.voices[0].osc.params()
     }
 }
