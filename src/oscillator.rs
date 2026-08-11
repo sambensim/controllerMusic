@@ -1,36 +1,12 @@
 use std::f32::consts::PI;
 
-use crate::instrument::ParamInfo;
+use crate::{parameters::{Parameterized}, params};
 
 pub fn get_next_phase(phase : f32, time_step : f32, freq : f32) -> f32 {
     (phase + freq * time_step) % 1.0
 }
-pub trait Oscillator : Send {
+pub trait Oscillator : Parameterized + Send {
     fn step(&mut self, freq : f32) -> f32;
-
-    fn params(&self) -> &'static [ParamInfo];
-
-    fn set_param(&mut self, index : usize, value : f32);
-}
-
-macro_rules! osc_params { //AI
-    ($ty:ty { $($name:literal => $field:ident [$min:expr, $max:expr, $default:expr]),* $(,)? }) => {
-        impl $ty {
-            pub const PARAMS: &'static [ParamInfo] = &[
-                $(ParamInfo { name: $name, min: $min, max: $max, default: $default },)*
-            ];
-
-            fn set_indexed(&mut self, index: usize, value: f32) {
-                let mut i = 0usize;
-                $(
-                    if index == i { self.$field = value; return; }
-                    i += 1;
-                )*
-                let _ = i;
-                debug_assert!(false, "param index {} out of range", index);
-            }
-        }
-    };
 }
 
 pub struct Saw {
@@ -46,20 +22,12 @@ impl Saw {
         }
     }
 }
-osc_params!(Saw {});
+params!(Saw {});
 
 impl Oscillator for Saw {
     fn step(&mut self, freq : f32) -> f32 {
         self.phase = get_next_phase(self.phase, self.time_step, freq);
         self.phase*2.0 - 1.0
-    }
-
-    fn params(&self) -> &'static [ParamInfo] {
-        Self::PARAMS
-    }
-
-    fn set_param(&mut self, index: usize, value: f32) {
-        self.set_indexed(index, value)
     }
 }
 
@@ -77,20 +45,12 @@ impl Sin {
         }
     }
 }
-osc_params!(Sin {});
+params!(Sin {});
 
 impl Oscillator for Sin {
     fn step(&mut self, freq : f32) -> f32 {
         self.phase = get_next_phase(self.phase, self.time_step, freq);
         (self.phase*2.0*PI).sin()
-    }
-
-    fn params(&self) -> &'static [ParamInfo] {
-        Self::PARAMS
-    }
-
-    fn set_param(&mut self, index: usize, value: f32) {
-        self.set_indexed(index, value)
     }
 }
 
@@ -115,7 +75,7 @@ impl Fm {
         }
     }
 }
-osc_params!(Fm {
+params!(Fm {
     "ratio"      => ratio [0.0, 4.0,  0.5],
     "amplitude"  => target_modulation_amplitude [0.0, PI, 0.5],
 });
@@ -127,14 +87,6 @@ impl Oscillator for Fm {
         let modulator_sin = self.modulation_amplitude * (self.modulator_phase * 2.0 * PI).sin();
 
         (self.carrier.step(freq) + modulator_sin).sin()
-    }
-
-    fn params(&self) -> &'static [ParamInfo] {
-        Self::PARAMS
-    }
-
-    fn set_param(&mut self, index: usize, value: f32) {
-        self.set_indexed(index, value)
     }
 }
 

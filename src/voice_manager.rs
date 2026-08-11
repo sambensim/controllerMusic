@@ -95,7 +95,7 @@ impl Voicebank {
         }
     }
 
-    pub fn params(&self) -> &'static [crate::instrument::ParamInfo] {
+    pub fn params(&self) -> &'static [crate::parameters::ParamInfo] {
         self.voices[0].osc.params()
     }
 }

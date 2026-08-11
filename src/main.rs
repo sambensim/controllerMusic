@@ -2,6 +2,7 @@ use raylib::drawing::RaylibDraw as _;
 
 use crate::display_engine::DisplayEngine;
 
+//TODO – organize into folders
 mod dualshock;
 mod visuals;
 mod sound;
@@ -16,6 +17,7 @@ mod intermediate_controller_state;
 mod effect;
 mod instrument;
 mod voice_manager;
+mod parameters;
 
 fn main() {
     let mut input_engine = input_engine::InputEngine::init::<crate::dualshock::DS4>();

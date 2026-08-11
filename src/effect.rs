@@ -1,33 +1,10 @@
 use std::collections::{VecDeque, vec_deque};
 
-use crate::instrument::ParamInfo;
+use crate::{parameters::{Parameterized}, params};
 
-pub trait Effect : Send {
+
+pub trait Effect : Parameterized + Send {
     fn step(&mut self, samp : f32) -> f32;
-
-    fn params(&self) -> &'static [ParamInfo];
-
-    fn set_param(&mut self, index : usize, value : f32);
-}
-
-macro_rules! effect_params { //AI
-    ($ty:ty { $($name:literal => $field:ident [$min:expr, $max:expr, $default:expr]),* $(,)? }) => {
-        impl $ty {
-            pub const PARAMS: &'static [ParamInfo] = &[
-                $(ParamInfo { name: $name, min: $min, max: $max, default: $default },)*
-            ];
-
-            fn set_indexed(&mut self, index: usize, value: f32) {
-                let mut i = 0usize;
-                $(
-                    if index == i { self.$field = value; return; }
-                    i += 1;
-                )*
-                let _ = i;
-                debug_assert!(false, "param index {} out of range", index);
-            }
-        }
-    };
 }
 
 pub struct Noise {
@@ -42,7 +19,7 @@ impl Noise {
     }
 }
 
-effect_params!(Noise {
+params!(Noise {
     "mix"      => mix      [0.0, 1.0,  0.02],
 });
 
@@ -52,14 +29,6 @@ impl Effect for Noise {
             return samp * (1.0 - self.mix) + self.mix * (fastrand::f32_inclusive() * 2.0 - 1.0)
         }
         0.0
-    }
-
-    fn params(&self) -> &'static [ParamInfo] {
-        Self::PARAMS
-    }
-
-    fn set_param(&mut self, index: usize, value: f32) {
-        self.set_indexed(index, value)
     }
 }
 
@@ -77,7 +46,7 @@ impl Delay {
         }
     }
 }
-effect_params!(Delay {
+params!(Delay {
     "mix"      => mix      [0.0, 1.0,  0.2],
 });
 
@@ -86,17 +55,7 @@ impl Effect for Delay {
         self.buffer.push_back(samp);
         samp * (1.0 - self.mix) + self.mix * self.buffer.pop_front().unwrap()
     }
-
-    fn params(&self) -> &'static [ParamInfo] {
-        Self::PARAMS
-    }
-
-    fn set_param(&mut self, index: usize, value: f32) {
-        self.set_indexed(index, value)
-    }
 }
-
-
 
 pub struct Gain {
     amount : f32,
@@ -109,21 +68,13 @@ impl Gain {
         }
     }
 }
-effect_params!(Gain {
+params!(Gain {
     "amount"      => amount      [0.0, 1.0,  0.2],
 });
 
 impl Effect for Gain {
     fn step(&mut self, samp : f32) -> f32 {
         samp * self.amount
-    }
-
-    fn params(&self) -> &'static [ParamInfo] {
-        Self::PARAMS
-    }
-
-    fn set_param(&mut self, index: usize, value: f32) {
-        self.set_indexed(index, value)
     }
 }
 

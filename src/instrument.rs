@@ -1,14 +1,7 @@
 use core::panic;
 
-use crate::{adsr::Adsr, controller::{InputEvent, InputSource}, effect::Effect, oscillator::Oscillator, voice_manager::{VoiceManager, Voicebank}};
+use crate::{adsr::Adsr, controller::{InputEvent, InputSource}, effect::Effect, oscillator::Oscillator, parameters::ParamInfo, voice_manager::{VoiceManager, Voicebank}};
 
-#[derive(PartialEq)]
-pub struct ParamInfo {
-    pub name: &'static str,
-    pub min: f32,
-    pub max: f32,
-    pub default: f32,
-}
 
 pub struct ParamOverride {
     pub target: TargetSpec,
