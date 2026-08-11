@@ -33,8 +33,8 @@ impl IntermediateControllerState {
         let dpad = (self.dpad != new_state.dpad)
             .then(|| InputEvent::Discrete(DiscreteType::Dpad, new_state.dpad, 8))
             .into_iter();
-        let touch_x = (self.quantize(DiscreteType::TouchX, 8) != new_state.quantize(DiscreteType::TouchX, 8))
-            .then(|| InputEvent::Discrete(DiscreteType::TouchX, new_state.quantize(DiscreteType::TouchX, 8), 8))
+        let touch_x = (self.quantize(DiscreteType::TouchX, 12) != new_state.quantize(DiscreteType::TouchX, 12))
+            .then(|| InputEvent::Discrete(DiscreteType::TouchX, new_state.quantize(DiscreteType::TouchX, 12), 12))
             .into_iter();
         let touch_y = (self.quantize(DiscreteType::TouchY, 8) != new_state.quantize(DiscreteType::TouchY, 8))
             .then(|| InputEvent::Discrete(DiscreteType::TouchY, new_state.quantize(DiscreteType::TouchY, 8), 8))

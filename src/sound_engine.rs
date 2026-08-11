@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Gain, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, ParamOverride, Target, TargetSpec}, oscillator::{Fm, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
+use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Gain, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, ParamOverride, Target, TargetSpec}, intermediate_controller_state::IntermediateControllerState, oscillator::{Fm, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
 
 
 pub struct SoundEngine {
@@ -29,11 +29,10 @@ impl SoundEngine {
                     &mut voice_manager,
                     &mut vec![
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
-                        ("delay", Box::new(Delay::new(sample_rate, 1.0))),
-                        ("delay", Box::new(Delay::new(sample_rate, 1.0))),
-                        ("delay", Box::new(Delay::new(sample_rate, 1.0))),
-                        ("delay", Box::new(Delay::new(sample_rate, 1.0))),
-                        ("delay", Box::new(Delay::new(sample_rate, 1.0))),
+                        ("delay2", Box::new(Delay::new(sample_rate, 1.0))),
+                        ("delay3", Box::new(Delay::new(sample_rate, 1.0))),
+                        ("delay4", Box::new(Delay::new(sample_rate, 1.0))),
+                        ("noise", Box::new(Noise::new())),
                         ("gain", Box::new(Gain::new())),
                         ],
                     &mut vec![
@@ -48,8 +47,33 @@ impl SoundEngine {
                         ParamOverride {
                             target : TargetSpec::Effect("gain"),
                             param : "amount",
-                            value : 1.4,
-                        }
+                            value : 2.4,
+                        },
+                        ParamOverride {
+                            target : TargetSpec::Effect("noise"),
+                            param : "mix",
+                            value : 0.005,
+                        },
+                        ParamOverride {
+                            target : TargetSpec::Effect("delay"),
+                            param : "mix",
+                            value : 0.4,
+                        },
+                        ParamOverride {
+                            target : TargetSpec::Effect("delay2"),
+                            param : "mix",
+                            value : 0.3,
+                        },
+                        ParamOverride {
+                            target : TargetSpec::Effect("delay3"),
+                            param : "mix",
+                            value : 0.3,
+                        },
+                        ParamOverride {
+                            target : TargetSpec::Effect("delay4"),
+                            param : "mix",
+                            value : 0.3,
+                        },
                     ],
                     8,
                 )),
@@ -59,9 +83,17 @@ impl SoundEngine {
                     |sr : u32| {Box::new(Saw::new(sr))},
                     |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)},
                     &mut voice_manager,
+                    &mut vec![
+                        ("gain", Box::new(Gain::new())),
+                    ],
                     &mut vec![],
-                    &mut vec![],
-                    vec![],
+                    vec![
+                        ParamOverride {
+                            target : TargetSpec::Effect("gain"),
+                            param : "amount",
+                            value : 0.8,
+                        },
+                    ],
                     8,
                 )),
             
@@ -92,26 +124,8 @@ impl SoundEngine {
                         }
                     }, Self::MAIN)
                 },
-                InputEvent::Button(ButtonType::Touch, true) | InputEvent::Discrete(DiscreteType::TouchX, _, 12)=> {
-                    let region = event.full_state.quantize(DiscreteType::TouchX,12);
-                    let mut note;
-                    let key;
-                    if self.current_chord.len() > 0 {
-                        // key = self.current_chord[0];
-                        let base = self.current_chord[region as usize % self.current_chord.len()];
-                        note = base + 12_u8 * (region / self.current_chord.len() as i8) as u8;
-                    } else {
-                        key = self.chord_engine.get_key_value();
-                        let kn = ChordEngine::get_key_notes(key);
-                        let base = &kn[region as usize % kn.len()];
-                        let oct = 5;
-                        note = ChordEngine::note_to_value(&format!("{}{}", &base, oct)).unwrap();
-                        let temp = &ChordEngine::note_add(note, 12 * (region as usize / kn.len()) as u8);
-                        note = ChordEngine::note_to_value(&temp).unwrap();
-                    }
-                    self.release_note(self.lead_note, -2);
-                    self.lead_note = note;
-                    self.play_note(note, -2);
+                InputEvent::Button(ButtonType::Touch, true) | InputEvent::Discrete(DiscreteType::TouchX, _, _)=> {
+                    self.update_lead(event.full_state, 12)
                 },
                 InputEvent::Button(ButtonType::Touch, false) => self.release_note(self.lead_note, -2),
                 InputEvent::Button(ButtonType::Share, true) => self.chord_engine.increment_key(),
@@ -141,6 +155,27 @@ impl SoundEngine {
             
             possible_event = self.controller_channel.try_recv();
         };
+    }
+
+    fn update_lead(&mut self, state : IntermediateControllerState, regions : u8) {
+        let region = state.quantize(DiscreteType::TouchX, regions);
+        let mut note;
+        let key;
+        if self.current_chord.len() > 0 {
+            let base = self.current_chord[region as usize % self.current_chord.len()];
+            note = base + 12_u8 * (region / self.current_chord.len() as i8) as u8;
+        } else {
+            key = self.chord_engine.get_key_value();
+            let kn = ChordEngine::get_key_notes(key);
+            let base = &kn[region as usize % kn.len()];
+            let oct = 5;
+            note = ChordEngine::note_to_value(&format!("{}{}", &base, oct)).unwrap();
+            let temp = &ChordEngine::note_add(note, 12 * (region as usize / kn.len()) as u8);
+            note = ChordEngine::note_to_value(&temp).unwrap();
+        }
+        self.release_note(self.lead_note, -2);
+        self.lead_note = note;
+        self.play_note(note, -2);
     }
 
     fn get_instrument(&mut self, instr : isize) -> &mut Box<Instrument> {

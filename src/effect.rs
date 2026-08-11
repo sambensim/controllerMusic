@@ -35,9 +35,9 @@ pub struct Noise {
 }
 
 impl Noise {
-    pub fn new(mix : f32) -> Self {
+    pub fn new() -> Self {
         Noise {
-            mix : mix,
+            mix : 0.0,
         }
     }
 }
