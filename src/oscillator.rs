@@ -116,7 +116,7 @@ impl Fm {
     }
 }
 osc_params!(Fm {
-    "ratio"      => ratio [0.0, 4.0,  1.0],
+    "ratio"      => ratio [0.0, 4.0,  0.5],
     "amplitude"  => target_modulation_amplitude [0.0, PI, 0.5],
 });
 
