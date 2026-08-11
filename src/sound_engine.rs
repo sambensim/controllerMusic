@@ -25,7 +25,7 @@ impl SoundEngine {
                 Box::new(Instrument::new(sample_rate,
                     "Fm+Delay",
                     |sr : u32| {Box::new(Fm::new(sr, |sr : u32| {Box::new(Sin::new(sr))}))},
-                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)},
+                    |sr : u32| {Adsr::new(sr)},
                     &mut voice_manager,
                     &mut vec![
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
@@ -81,7 +81,7 @@ impl SoundEngine {
                 Box::new(Instrument::new(sample_rate,
                     "Saw",
                     |sr : u32| {Box::new(Saw::new(sr))},
-                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)},
+                    |sr : u32| {Adsr::new(sr)},
                     &mut voice_manager,
                     &mut vec![
                         ("gain", Box::new(Gain::new())),

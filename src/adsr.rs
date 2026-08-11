@@ -1,3 +1,5 @@
+use crate::params;
+
 enum AdsrPhase {
     Attack,
     Decay,
@@ -16,12 +18,12 @@ pub struct Adsr {
 }
 
 impl Adsr {
-    pub fn new(sample_rate : u32, a : f32, d : f32, s : f32, r : f32) -> Adsr {
+    pub fn new(sample_rate : u32) -> Adsr {
         Adsr {
-            atime_secs : a,
-            dtime_secs : d,
-            slevel : s,
-            rtime_secs : r,
+            atime_secs : 0.0,
+            dtime_secs : 0.0,
+            slevel : 0.0,
+            rtime_secs : 0.0,
             phase : AdsrPhase::Release,
             level : 0.0,
             sample_rate : sample_rate,
@@ -60,3 +62,10 @@ impl Adsr {
         self.phase = AdsrPhase::Release
     }
 }
+
+params!(Adsr {
+    "attack" => atime_secs [0.0, 60.0, 0.3],
+    "decay" => dtime_secs [0.0, 60.0, 0.5],
+    "sustain" => slevel [0.0, 1.0, 0.6],
+    "release" => rtime_secs [0.0, 60.0, 0.8],
+});
