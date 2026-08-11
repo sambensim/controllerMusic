@@ -18,7 +18,7 @@ pub struct IntermediateControllerState {
     pub r_trigger: f32,
     // Buttons
     pub packed_button_states : u16, //Square, Cross, Circle, Triangle, LBumper, RBumper, LTriggerBtn, RTriggerBtn, Share, Options, LStickBtn, RStickBtn,
-    // D-pad: 0-7 clockwise from up, 8 == none
+    // D-pad: 0-7 clockwise from up, 8 == none //TODO - translate to be the same orientation as joysticks
     pub dpad: i8,
 }
 
@@ -70,15 +70,6 @@ impl IntermediateControllerState {
         };
     }
 
-    // pub fn quantize_continuous(&self, continuous_type : ContinuousType, regions : u8) -> i8 {
-    //     return match continuous_type {
-    //         ContinuousType::LeftTrigger => {
-    //             (self.l_trigger * (regions as f32)) as i8
-    //         },
-    //         _ => -1
-    //     }
-    // }
-
     pub fn get_default() -> Self {
         IntermediateControllerState {
             left_stick_x: 0.0,
@@ -122,7 +113,6 @@ pub fn start_controller_thread<T>(device: hidapi::HidDevice) -> mpsc::Receiver<I
     });
     receiver
 }
-
 
 const THRESHOLD : f32 = 0.4;
 fn get_vec_section(x : f32, y : f32, sections : u8) -> i8 {

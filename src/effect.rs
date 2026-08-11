@@ -150,25 +150,3 @@ impl Effect for Gain {
 //         samp * (1.0 - self.mix) + self.mix * ((((((samp + 1.0) / 2.0) * self.quantize_steps as f32) as u32) as f32 / self.quantize_steps as f32) * 2.0 - 1.0)
 //     }
 // }
-
-// pub struct Gain {
-//     coefficient : f32,
-// }
-
-// impl Gain {
-//     pub fn new(coefficient : f32) -> Self {
-//         Gain {
-//             coefficient : coefficient,
-//         }
-//     }
-
-//     pub fn set(&mut self, coefficient : f32) {
-//         self.coefficient = coefficient;
-//     }
-// }
-
-// impl Effect for Gain {
-//     fn step(&mut self, samp : f32) -> f32 {
-//         samp * self.coefficient
-//     }
-// }

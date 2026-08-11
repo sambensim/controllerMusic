@@ -4,14 +4,14 @@ use raylib::prelude::*;
 use crate::display_engine::DisplayEngine;
 use crate::display_engine::Visual;
 
-pub fn handle_visuals(mut d : RaylibDrawHandle, display_engine : &mut DisplayEngine) {
+pub fn handle_visuals(d : RaylibDrawHandle, display_engine : &mut DisplayEngine) {
     match display_engine.current_visual {
        Visual::Setup => visual_setup(d, display_engine),
        Visual::Main => visual_main(d, display_engine),
     }
 }
 
-fn visual_setup(mut d : RaylibDrawHandle, display_engine : &mut DisplayEngine) {
+fn visual_setup(_d : RaylibDrawHandle, _display_engine : &mut DisplayEngine) {
 }
 
 fn visual_main(mut d : RaylibDrawHandle, display_engine : &mut DisplayEngine) {

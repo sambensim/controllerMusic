@@ -15,7 +15,6 @@ mod controller;
 mod intermediate_controller_state;
 mod effect;
 mod instrument;
-mod voice;
 mod voice_manager;
 
 fn main() {

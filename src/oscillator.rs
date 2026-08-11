@@ -138,54 +138,6 @@ impl Oscillator for Fm {
     }
 }
 
-// pub struct Fm {
-//     carrier : Box<dyn Oscillator>,
-//     modulator_phase : f32,
-//     time_step : f32,
-//     ratio : f32,
-//     modulation_amplitude : f32,
-//     target_modulation_amplitude : f32,
-// }
-
-// impl Fm {
-//     pub fn new(sample_rate : u32, oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>, ratio : f32, amplitude : f32) -> Self {
-//         Fm {
-//             carrier : oscillator_factory(sample_rate),
-//             modulator_phase : 0.0,
-//             time_step : 1.0 / sample_rate as f32,
-//             ratio : ratio,
-//             modulation_amplitude : amplitude,
-//             target_modulation_amplitude : amplitude,
-//         }
-//     }
-//     pub fn set(&mut self, ratio : f32, modulation_amplitude : f32) {
-//         self.ratio = ratio;
-//         self.target_modulation_amplitude = modulation_amplitude;
-//     }
-// }
-
-// impl Oscillator for Fm {
-//     fn step(&mut self, freq : f32) -> f32 {
-//         self.modulation_amplitude += (self.target_modulation_amplitude - self.modulation_amplitude) * 0.001; //0.001 == smoothing amt
-//         self.modulator_phase = get_next_phase(self.modulator_phase, self.time_step, self.ratio * freq);
-//         let modulator_sin = self.modulation_amplitude * (self.modulator_phase * 2.0 * PI).sin();
-
-//         (self.carrier.step(freq) + modulator_sin).sin()
-//     }
-// }
-// //    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-// //         match event {
-// //             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::LeftTrigger, v) => self.set(self.ratio, v * 4.0),
-// //             crate::controller::InputEvent::Button(crate::controller::ButtonType::RBumper, true) => {
-// //                 let n = 1.0;//[0.25, 0.5, 1.0][fastrand::usize(0..3)];
-// //                 println!("{n}");
-// //                 self.set( n, self.modulation_amplitude)
-// //             },
-// //             _ => ()
-// //         };
-// //         self.carrier.handle_input(event);
-// //     }
-
 // pub struct GlideSin {
 //     osc : Box<dyn Oscillator>,
 //     time_step : f32,
@@ -221,71 +173,11 @@ impl Oscillator for Fm {
 //     }
 // }
 
-// // pub struct BitCrush <T> where T: Oscillator {
-// //     osc : T,
-// //     quantize_steps : u32,
-// // }
 
-// // impl<T> BitCrush <T> where T: Oscillator{
-// //     pub fn set(&mut self,  quantize_steps : u32) {
-// //         self.quantize_steps = quantize_steps;
-// //     }
-// // }
-
-// // impl<T> Oscillator for BitCrush <T> where T: Oscillator{
-// //     fn new(sample_rate : u32) -> Self {
-// //         BitCrush {
-// //             osc : T::new(sample_rate),
-// //             quantize_steps : 66,
-// //         }
-// //     }
-
-// //     fn step(&mut self, freq : f32) -> f32 {
-// //         ((self.osc.step(freq) * self.quantize_steps as f32) as u32) as f32 / self.quantize_steps as f32
-// //     }
-
-// //    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-// //         self.osc.handle_input(event);
-// //         match event {
-// //             crate::controller::InputEvent::Continuous(crate::controller::ContinuousType::RightTrigger, v) => self.set(66 - (v * 64.0) as u32),
-// //             _ => ()
-// //         };
-// //    }
-// // }
-
-
-// // pub struct Gain <T> where T: Oscillator {
-// //     osc : T,
-// //     coefficient : f32,
-// // }
-
-// // impl<T> Gain <T> where T: Oscillator{
-// //     pub fn set(&mut self,  coefficient : f32) {
-// //         self.coefficient = coefficient;
-// //     }
-// // }
-
-// // impl<T> Oscillator for Gain <T> where T: Oscillator{
-// //     fn new(sample_rate : u32) -> Self {
-// //         Gain {
-// //             osc : T::new(sample_rate),
-// //             coefficient : 1.0,
-// //         }
-// //     }
-
-// //     fn step(&mut self, freq : f32) -> f32 {
-// //         self.osc.step(freq) * self.coefficient
-// //     }
-
-// //    fn handle_input(&mut self, event : crate::controller::InputEvent) {
-// //         self.osc.handle_input(event);
-// //    }
-// // }
-
-// // /*
-// // delay / echo
-// // detuned oscillators / detuned pairs (detune fm params?)
-// // live envelope change
-// // lfos to hook into other params
-// // change chord voicing with touchpad
-// // */
+// /*
+// delay / echo
+// detuned oscillators / detuned pairs (detune fm params?)
+// live envelope change
+// lfos to hook into other params
+// change chord voicing with touchpad
+// */

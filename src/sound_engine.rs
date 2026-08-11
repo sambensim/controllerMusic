@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Gain, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, ParamOverride, Target, TargetSpec}, intermediate_controller_state::IntermediateControllerState, oscillator::{Fm, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
+use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Gain, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, ParamOverride, TargetSpec}, intermediate_controller_state::IntermediateControllerState, oscillator::{Fm, Saw, Sin}, voice_manager::VoiceManager};
 
 
 pub struct SoundEngine {
@@ -40,7 +40,7 @@ impl SoundEngine {
                             target : TargetSpec::Osc,
                             param : "amplitude",
                             input : InputSource::Continuous(LeftTrigger),
-                            response : instrument::Curve::Linear(),
+                            response : instrument::Curve::_Linear(),
                         }
                     ],
                     vec![

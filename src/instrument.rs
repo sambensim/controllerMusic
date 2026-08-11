@@ -19,11 +19,8 @@ pub struct ParamOverride {
 #[derive(Clone, Copy, Debug)]
 pub enum TargetSpec { Effect(&'static str), Osc }
 
-#[derive(Clone, Copy, Debug)]
-pub enum Target { Effect(usize), Osc }
-
 #[derive(PartialEq, Clone, Copy, Debug)]
-pub enum Curve { Linear(), Exponential(f32), Stepped(u8)}
+pub enum Curve { _Linear(), _Exponential(f32), _Stepped(u8)}
 
 const fn map(value : f32, min_in : f32, max_in : f32, min_out : f32, max_out : f32) -> f32 {
     (value - min_in) / max_in * max_out + min_out
@@ -38,9 +35,9 @@ impl Curve {
         // println!("{} -> [{} {}] = {}", value, info.min, info.max, map(value, 0.0, 1.0, info.min, info.max));
         map(
             match self {
-                Curve::Linear() => value,
-                Curve::Exponential(exp) => value.powf(*exp),
-                Curve::Stepped(steps) => discretize(value, 0.0, 1.0, *steps),
+                Curve::_Linear() => value,
+                Curve::_Exponential(exp) => value.powf(*exp),
+                Curve::_Stepped(steps) => discretize(value, 0.0, 1.0, *steps),
             },
         0.0, 1.0, info.min, info.max
         )
@@ -113,7 +110,7 @@ impl InputMapping {
 }
 
 pub struct Instrument {
-    display_name : &'static str,
+    _display_name : &'static str,
     voicebank : Voicebank,
     post_processing : Vec<Box<dyn Effect>>,
     input_map : Vec<InputMapping>
@@ -139,7 +136,7 @@ impl Instrument {
         let input_map_baked : Vec<InputMapping> = input_map.iter_mut().map(| spec | {spec.bake(&effects, voicebank.params())}).collect();
         let post_processing = effects.drain(..).map(|(_, e)| e).collect();
         Instrument {
-            display_name : display_name,
+            _display_name : display_name,
             voicebank: voicebank,
             post_processing: post_processing,
             input_map : input_map_baked,
@@ -159,12 +156,6 @@ impl Instrument {
             }
         }
         osc_overrides
-    }
-
-    fn seed_defaults(fx: &mut dyn Effect) {
-        for (i, info) in fx.params().iter().enumerate() {
-            fx.set_param(i, info.default);
-        }
     }
 
     pub fn step(&mut self) -> f32 {

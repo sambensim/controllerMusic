@@ -4,19 +4,6 @@ use crate::intermediate_controller_state::IntermediateControllerState;
 
 #[derive(Default, Copy, Clone, Debug)]
 pub struct DS4 {}
-//     // Sticks: normalized -1.0 to 1.0
-//     pub left_stick_x: f32,
-//     pub left_stick_y: f32,
-//     pub right_stick_x: f32,
-//     pub right_stick_y: f32,
-//     // Triggers: 0.0 to 1.0
-//     pub l_trigger: f32,
-//     pub r_trigger: f32,
-//     // Buttons
-//     pub packed_button_states : u16,
-//     // D-pad: 0-7 clockwise from up, 8 == none
-//     pub dpad: i8,
-// }
 
 impl crate::controller::Controller for DS4 {
     fn get_controller() -> Result<HidDevice, String> {
@@ -87,13 +74,9 @@ impl crate::controller::Controller for DS4 {
 
 impl DS4 {
     fn enable_full_bt_reports(device: &hidapi::HidDevice) -> hidapi::HidResult<()> { //AI
-        // Request the BT calibration feature report (0x05).
-        // This is what tells the DS4 to switch from the short 0x01 reports
-        // to the extended 0x11–0x19 reports. You only need to call this once
         let mut buf = [0u8; 41]; // ReportFeatureInCalibrateBT is 41 bytes
         buf[0] = 0x05;           // report ID
         device.get_feature_report(&mut buf)?;
-        // You can parse the calibration data out of buf here if you want it
         Ok(())
     }
 }

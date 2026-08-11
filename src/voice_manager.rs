@@ -1,4 +1,4 @@
-use crate::{adsr::Adsr, oscillator::Oscillator, voice::Voice};
+use crate::{adsr::Adsr, oscillator::Oscillator};
 
 pub struct VoiceManager {
 }
@@ -51,7 +51,7 @@ impl Voicebank {
 
     pub fn release_all(&mut self) {
         for v in self.voices.iter_mut() {
-            if let Some(ni) = &v.note_info {
+            if v.note_info.is_some() {
                 v.release()
             }
         }
@@ -97,5 +97,37 @@ impl Voicebank {
 
     pub fn params(&self) -> &'static [crate::instrument::ParamInfo] {
         self.voices[0].osc.params()
+    }
+}
+
+pub struct NoteInfo {
+    pub note : u8,
+    pub release : Option<std::time::Instant>
+}
+
+pub struct Voice {
+    pub note_info : Option<NoteInfo>,
+    pub osc : Box<dyn crate::oscillator::Oscillator>,
+    pub env : crate::adsr::Adsr,
+}
+
+impl Voice {
+    pub fn release(&mut self) {
+        self.env.release();
+        self.note_info.as_mut().unwrap().release = Some(std::time::Instant::now());
+    }
+
+    pub fn play(&mut self, note : u8) {
+        self.note_info = Some(NoteInfo {
+            note: note, release: None,
+        });
+        self.env.trigger();
+    }
+
+    pub fn step(&mut self) -> f32 {
+        let Some(note_info) = &self.note_info else {
+            return 0.0;
+        };
+        self.env.step() * self.osc.step(crate::chord_engine::ChordEngine::value_to_freq(note_info.note))
     }
 }
