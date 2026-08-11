@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, Target}, oscillator::{Fm, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
+use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Gain, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, ParamOverride, Target, TargetSpec}, oscillator::{Fm, Saw, Sin}, voice::Voice, voice_manager::{self, VoiceManager}};
 
 
 pub struct SoundEngine {
@@ -25,21 +25,30 @@ impl SoundEngine {
                 Box::new(Instrument::new(sample_rate,
                     "Fm+Delay",
                     |sr : u32| {Box::new(Fm::new(sr, |sr : u32| {Box::new(Sin::new(sr))}))},
-                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
-                    vec![
+                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)},
+                    &mut voice_manager,
+                    &mut vec![
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
                         ("delay", Box::new(Delay::new(sample_rate, 1.0))),
+                        ("gain", Box::new(Gain::new())),
                         ],
                     &mut vec![
                         InputMapSpec {
-                            target : Target::Osc,
+                            target : TargetSpec::Osc,
                             param : "amplitude",
                             input : InputSource::Continuous(LeftTrigger),
                             response : instrument::Curve::Linear(),
+                        }
+                    ],
+                    vec![
+                        ParamOverride {
+                            target : TargetSpec::Effect("gain"),
+                            param : "amount",
+                            value : 1.4,
                         }
                     ],
                     8,
@@ -48,9 +57,11 @@ impl SoundEngine {
                 Box::new(Instrument::new(sample_rate,
                     "Saw",
                     |sr : u32| {Box::new(Saw::new(sr))},
-                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)}, &mut voice_manager,
-                    vec![],
+                    |sr : u32| {Adsr::new(sr, 1.0, 1.0, 0.8, 1.0)},
+                    &mut voice_manager,
                     &mut vec![],
+                    &mut vec![],
+                    vec![],
                     8,
                 )),
             

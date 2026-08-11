@@ -64,7 +64,6 @@ impl Effect for Noise {
 }
 
 
-
 pub struct Delay {
     mix : f32,
     buffer : VecDeque<f32>,
@@ -97,6 +96,36 @@ impl Effect for Delay {
     }
 }
 
+
+
+pub struct Gain {
+    amount : f32,
+}
+
+impl Gain {
+    pub fn new() -> Self {
+        Gain {
+            amount : 0.0,
+        }
+    }
+}
+effect_params!(Gain {
+    "amount"      => amount      [0.0, 1.0,  0.2],
+});
+
+impl Effect for Gain {
+    fn step(&mut self, samp : f32) -> f32 {
+        samp * self.amount
+    }
+
+    fn params(&self) -> &'static [ParamInfo] {
+        Self::PARAMS
+    }
+
+    fn set_param(&mut self, index: usize, value: f32) {
+        self.set_indexed(index, value)
+    }
+}
 
 // pub struct BitCrush {
 //     mix : f32,

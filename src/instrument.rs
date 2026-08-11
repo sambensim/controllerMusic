@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{adsr::Adsr, controller::{ButtonType, ContinuousType, DiscreteType, InputEvent, InputSource}, effect::Effect, input_engine::FullInputEvent, oscillator::Oscillator, voice_manager::{VoiceManager, Voicebank}};
+use crate::{adsr::Adsr, controller::{InputEvent, InputSource}, effect::Effect, oscillator::Oscillator, voice_manager::{VoiceManager, Voicebank}};
 
 #[derive(PartialEq)]
 pub struct ParamInfo {
@@ -10,8 +10,17 @@ pub struct ParamInfo {
     pub default: f32,
 }
 
+pub struct ParamOverride {
+    pub target: TargetSpec,
+    pub param: &'static str,
+    pub value: f32,
+}
+
 #[derive(Clone, Copy, Debug)]
-pub enum Target { Effect(&'static str), Osc }
+pub enum TargetSpec { Effect(&'static str), Osc }
+
+#[derive(Clone, Copy, Debug)]
+pub enum Target { Effect(usize), Osc }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum Curve { Linear(), Exponential(f32), Stepped(u8)}
@@ -40,20 +49,19 @@ impl Curve {
 
 const MAX_EFFECTS : usize = 12;
 
-
 #[derive(Clone, Copy, Debug)]
 pub struct InputMapSpec {
-    pub target : Target,
+    pub target : TargetSpec,
     pub param : &'static str,
     pub input : InputSource,
     pub response : Curve,
 }
 
 impl InputMapSpec {
-    fn bake(self, effects : &Vec<(&'static str, Box<dyn Effect>)>, osc : Box<dyn Oscillator>) -> InputMapping {
+    fn bake(self, effects : &Vec<(&'static str, Box<dyn Effect>)>, osc_params : &'static [ParamInfo]) -> InputMapping {
         let mut effect_index = MAX_EFFECTS;
         let mut param_index = MAX_EFFECTS;
-        if let Target::Effect(effect_name) = self.target {
+        if let TargetSpec::Effect(effect_name) = self.target {
             for (i, p) in effects.into_iter().enumerate() {
                 if p.0 == effect_name {
                    if let Some(index) = p.1.params().iter().position(|param| param.name == self.param) {
@@ -67,7 +75,7 @@ impl InputMapSpec {
                 panic!("bad effect param '{}' for effect '{}'", self.param, effect_name)
             }
         } else {
-            if let Some(p_i) = osc.params().iter().position(|param| param.name == self.param) {
+            if let Some(p_i) = osc_params.iter().position(|param| param.name == self.param) {
                 param_index = p_i
             } else {
                 panic!("bad osc param '{}'", self.param)
@@ -117,16 +125,40 @@ impl Instrument {
         oscillator_factory: impl Fn(u32) -> Box<dyn Oscillator>,
         envelope_factory: impl Fn(u32) -> Adsr,
         voice_manager : &mut VoiceManager,
-        effects : Vec<(&'static str, Box<dyn Effect>)>,
-        input_map : &mut Vec<InputMapSpec>, polyphony : usize) -> Self {
-            let input_map_baked : Vec<InputMapping> = input_map.iter_mut().map(| spec | {spec.bake(&effects, oscillator_factory(0))}).collect();
-        let post_processing = effects.into_iter().map(| (_, mut e) | {Self::seed_defaults(e.as_mut()); e}).collect();
+        effects : &mut Vec<(&'static str, Box<dyn Effect>)>,
+        input_map : &mut Vec<InputMapSpec>,
+        overrides : Vec<ParamOverride>,
+        polyphony : usize) -> Self
+    {
+        let osc_overrides = Self::apply_overrides(overrides, effects);
+        let voicebank = voice_manager.request_voicebank(sample_rate, polyphony, &oscillator_factory, &envelope_factory).unwrap();
+        for o in osc_overrides {
+            let _ = voicebank.params().iter().position(|p| p.name == o.param).unwrap();
+        }
+        
+        let input_map_baked : Vec<InputMapping> = input_map.iter_mut().map(| spec | {spec.bake(&effects, voicebank.params())}).collect();
+        let post_processing = effects.drain(..).map(|(_, e)| e).collect();
         Instrument {
             display_name : display_name,
-            voicebank: voice_manager.request_voicebank(sample_rate, polyphony, oscillator_factory, envelope_factory).unwrap(),
+            voicebank: voicebank,
             post_processing: post_processing,
             input_map : input_map_baked,
         }
+    }
+
+    fn apply_overrides(overrides : Vec<ParamOverride>, effects : &mut [(&'static str, Box<dyn Effect>)]) -> Vec<ParamOverride> {
+        let mut osc_overrides : Vec<ParamOverride> = vec![];
+        for o in overrides {
+            match o.target {
+                TargetSpec::Effect(name) => {
+                    let (_, effect) = effects.iter_mut().find(|(label, _)| *label == name).unwrap();
+                    let index = effect.params().iter().position(|p| p.name == o.param).unwrap();
+                    effect.set_param(index, o.value);
+                },
+                TargetSpec::Osc => osc_overrides.push(o),
+            }
+        }
+        osc_overrides
     }
 
     fn seed_defaults(fx: &mut dyn Effect) {
