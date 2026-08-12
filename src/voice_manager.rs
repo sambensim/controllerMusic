@@ -1,4 +1,4 @@
-use crate::{adsr::Adsr, oscillator::Oscillator};
+use crate::{adsr::Adsr, oscillator::Oscillator, parameters::Parameterized};
 
 pub struct VoiceManager {
 }
@@ -17,14 +17,17 @@ impl VoiceManager {
             }).collect()
         };
         for v in out.voices.iter_mut() {
-            Self::seed_defaults(v.osc.as_mut());
+            Self::seed_defaults(v);
         }
         Ok(out)
     }
 
-    fn seed_defaults(osc: &mut dyn Oscillator) {
-        for (i, info) in osc.params().iter().enumerate() {
-            osc.set_param(i, info.default);
+    fn seed_defaults(v: &mut Voice) {
+        for (i, info) in v.osc.params().iter().enumerate() {
+            v.osc.set_param(i, info.default);
+        }
+        for (i, info) in v.env.params().iter().enumerate() {
+            v.env.set_param(i, info.default);
         }
     }
 }
@@ -78,12 +81,9 @@ impl Voicebank {
             }
         }
         // check for voice with a note no longer being held
-        for (i, v) in self.voices.iter().enumerate() {
-            if let Some(ni) = &v.note_info {
-                if ni.release.is_some() {
-                    return i;
-                }
-            }
+        let temp = self.voices.iter().enumerate().filter(|(_, element)| {element.note_info.is_some() && element.note_info.as_ref().unwrap().release.is_some()}).min_by(|(_, e1), (_, e2)| {e1.note_info.as_ref().unwrap().release.cmp(&e2.note_info.as_ref().unwrap().release)} );
+        if let Some((i, _)) = temp {
+            return i
         }
         println!("max voices exceeded");
         0
