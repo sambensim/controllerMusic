@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::mpsc::Receiver};
 
-use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, display_engine::Visual::Main, input_engine::FullInputEvent, intermediate_controller_state};
+use crate::{chord_engine::{self, ChordEngine}, controller::{ButtonType, DiscreteType, InputEvent}, display_engine::Visual::Main, input_engine::FullInputEvent, intermediate_controller_state::{self, IntermediateControllerState}};
 
 pub enum Visual {
     Setup,
@@ -14,7 +14,8 @@ pub struct DisplayEngine {
     samples : VecDeque<f32>,
     pub current_chord : String,
     pub selected_chord : String,
-    pub current_visual : Visual
+    pub current_visual : Visual,
+    last_state : IntermediateControllerState
 }
 
 impl DisplayEngine {
@@ -27,6 +28,7 @@ impl DisplayEngine {
             current_chord : "None".to_string(),
             selected_chord : "None".to_string(),
             current_visual : Visual::Setup,
+            last_state : IntermediateControllerState::get_default(),
         }
     }
 
@@ -51,6 +53,7 @@ impl DisplayEngine {
                     InputEvent::Button(ButtonType::RStickBtn, false) => self.chord_engine.decrement_key(),
                     _ => ()//println!("{:?}", event.event_info)
                 }
+                self.last_state = event.full_state;
                 possible_event = controller.try_recv();
                 self.selected_chord = Self::get_selected_chord(&self.chord_engine, &event.full_state);
             };
@@ -59,7 +62,15 @@ impl DisplayEngine {
 
     fn get_selected_chord(chord_engine : &ChordEngine, full_state : &intermediate_controller_state::IntermediateControllerState) -> String {
         if full_state.quantize(DiscreteType::Left, 8) == -1 { "None".to_string() } else {
-            chord_engine::ChordEngine::get_chord_name(chord_engine.get_key_value(), full_state.quantize(DiscreteType::Left, 8) as i32, full_state.quantize(DiscreteType::Right, 8) as i32)
+            chord_engine::ChordEngine::get_chord_name(chord_engine.get_key_value(), full_state.quantize(DiscreteType::Left, 8) as i32, full_state.quantize(DiscreteType::Right, 8) as i32 + (if full_state.get_button(ButtonType::LBumper) {9} else {0}))
+        }
+    }
+
+    pub fn get_modes(&self) -> [&str; 8] {
+        if !self.last_state.get_button(ButtonType::LBumper) {
+            return ["7", "add9", "9", "dim", "aug", "sus4", "5", "6"];
+        } else {
+            return ["flip7", "flipadd9", "flip9", "dim7", "dom7", "7sus4", "sus2", "flip6"];
         }
     }
 

@@ -1,7 +1,9 @@
 use std::f32::consts::PI;
 use std::sync::{mpsc};
 use std::thread;
-use crate::controller::ContinuousType;
+use raylib::ffi::GuiControl::BUTTON;
+
+use crate::controller::{ButtonType, ContinuousType};
 use crate::controller::{BUTTONS, Controller, DiscreteType, InputEvent};
 
 #[derive(Copy, Clone, Debug)]
@@ -83,6 +85,10 @@ impl IntermediateControllerState {
             packed_button_states: 0,
             dpad: 0
         }
+    }
+
+    pub fn get_button(&self, button : ButtonType) -> bool {
+        return self.packed_button_states & (1u16 << BUTTONS.iter().position(|b| {*b == button}).unwrap()) != 0
     }
 
     fn button_events(&self, new_state : Self) -> impl Iterator<Item = InputEvent> {

@@ -103,7 +103,7 @@ impl InputMapping {
 }
 
 pub struct Instrument {
-    _display_name : &'static str,
+    pub display_name : &'static str,
     voicebank : Voicebank,
     post_processing : Vec<Box<dyn Effect>>,
     input_map : Vec<InputMapping>
@@ -129,7 +129,7 @@ impl Instrument {
         let input_map_baked : Vec<InputMapping> = input_map.iter_mut().map(| spec | {spec.bake(&effects, voicebank.params())}).collect();
         let post_processing = effects.drain(..).map(|(_, e)| e).collect();
         Instrument {
-            _display_name : display_name,
+            display_name : display_name,
             voicebank: voicebank,
             post_processing: post_processing,
             input_map : input_map_baked,

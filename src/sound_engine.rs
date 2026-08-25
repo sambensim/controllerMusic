@@ -1,5 +1,5 @@
 use std::{sync::mpsc::{self}};
-use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Gain, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, ParamOverride, TargetSpec}, intermediate_controller_state::IntermediateControllerState, oscillator::{Fm, Saw, Sin}, voice_manager::VoiceManager};
+use crate::{adsr::Adsr, chord_engine::{self, ChordEngine}, controller::{ButtonType, ContinuousType::LeftTrigger, DiscreteType, InputEvent, InputSource}, effect::{Delay, Gain, Noise}, input_engine::FullInputEvent, instrument::{self, InputMapSpec, Instrument, ParamOverride, TargetSpec}, intermediate_controller_state::IntermediateControllerState, oscillator::{Fm, Saw, Sin, Square}, voice_manager::VoiceManager};
 
 
 pub struct SoundEngine {
@@ -97,6 +97,32 @@ impl SoundEngine {
                     8,
                 )),
             
+                Box::new(Instrument::new(sample_rate,
+                    "Square",
+                    |sr : u32| {Box::new(Square::new(sr))},
+                    |sr : u32| {Adsr::new(sr)},
+                    &mut voice_manager,
+                    &mut vec![
+                        ("gain", Box::new(Gain::new())),
+                    ],
+                    &mut vec![
+                        InputMapSpec {
+                            target : TargetSpec::Osc,
+                            param : "ratio",
+                            input : InputSource::Continuous(LeftTrigger),
+                            response : instrument::Curve::_Linear(),
+                        }
+                    ],
+                    vec![
+                        ParamOverride {
+                            target : TargetSpec::Effect("gain"),
+                            param : "amount",
+                            value : 1.0,
+                        },
+                    ],
+                    8,
+                )),
+
                 ],
             main_instrument : 0,
             lead_instrument : 1,
@@ -119,7 +145,7 @@ impl SoundEngine {
                     self.play_chord({
                         if event.full_state.quantize(DiscreteType::Left, 8) == -1  { vec!() } else {
                             self.chord_engine.get_chord_notes(
-                                event.full_state.quantize(DiscreteType::Left, 8) as i32, event.full_state.quantize(DiscreteType::Right, 8) as i32
+                                event.full_state.quantize(DiscreteType::Left, 8) as i32, event.full_state.quantize(DiscreteType::Right, 8) as i32 + (if event.full_state.get_button(ButtonType::LBumper) {9} else {0})
                             ).into_iter().map(|note| { ChordEngine::note_to_value(&note).unwrap() }).collect()
                         }
                     }, Self::MAIN)
@@ -145,6 +171,7 @@ impl SoundEngine {
                     self.instruments[self.lead_instrument].release_all();
                     self.main_instrument = (self.main_instrument + 1) % self.instruments.len();
                     self.lead_instrument = (self.lead_instrument + 1) % self.instruments.len();
+                    println!("main: {}\nlean: {}", self.instruments[self.main_instrument].display_name, self.instruments[self.lead_instrument].display_name)
                 },
                 _ => {
                     for instr in &mut self.instruments {

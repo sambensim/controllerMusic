@@ -69,7 +69,7 @@ impl Gain {
     }
 }
 params!(Gain {
-    "amount"      => amount      [0.0, 1.0,  0.2],
+    "amount"      => amount      [0.0, 1.0,  1.0],
 });
 
 impl Effect for Gain {

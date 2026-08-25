@@ -90,6 +90,61 @@ impl Oscillator for Fm {
     }
 }
 
+pub struct Square {
+    phase : f32,
+    time_step : f32,
+    ratio : f32,
+}
+
+impl Square {
+    pub fn new(sample_rate : u32) -> Self {
+        Square {
+            phase : 0.0,
+            time_step : 1.0 / sample_rate as f32,
+            ratio : 0.0,
+        }
+    }
+}
+params!(Square {
+    "ratio"      => ratio [0.5, 1.0,  0.5],
+});
+
+impl Oscillator for Square {
+    fn step(&mut self, freq : f32) -> f32 {
+        self.phase = get_next_phase(self.phase, self.time_step, freq);
+
+        if self.phase > self.ratio {1.0} else {-1.0}
+    }
+}
+
+
+// pub struct Square {
+//     phase : f32,
+//     time_step : f32,
+//     ratio : f32,
+// }
+
+// impl Square {
+//     pub fn new(sample_rate : u32) -> Self {
+//         Square {
+//             phase : 0.0,
+//             time_step : 1.0 / sample_rate as f32,
+//             ratio : 0.0,
+//         }
+//     }
+// }
+// params!(Square {
+//     "ratio"      => ratio [0.5, 1.0,  0.5],
+// });
+
+// impl Oscillator for Square {
+//     fn step(&mut self, freq : f32) -> f32 {
+//         self.phase = get_next_phase(self.phase, self.time_step, freq);
+
+//         if self.phase > self.ratio {1.0} else {-1.0}
+//     }
+// }
+
 // pub struct GlideSin {
 //     osc : Box<dyn Oscillator>,
 //     time_step : f32,

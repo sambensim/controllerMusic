@@ -35,11 +35,11 @@ fn visual_main(mut d : RaylibDrawHandle, display_engine : &mut DisplayEngine) {
         d.draw_text(&notes[i%7], pos.x as i32, pos.y as i32, 12, Color::BLACK);
     }
 
-     let modes = ["flip7", "add9", "sus4", "sus2", "dim", "aug", "flip", "dom7"];
+    let modes = display_engine.get_modes();
     let center = Vector2::new(DisplayEngine::WIDTH / 12.0 * 9.0, DisplayEngine::HEIGHT / 6.0);
     let r = DisplayEngine::HEIGHT / 8.0;
     for i in 0..8 {
-        let pos = center + Vector2::new(r * (2.0 * PI as f32 * i as f32 / 8.0).cos(), r * (2.0 * PI as f32 * i as f32 / 8.0).sin());
+        let pos = center + Vector2::new(r * (2.0 * PI as f32 * i as f32 / 8.0 - PI as f32 / 2.0).cos(), r * (2.0 * PI as f32 * i as f32 / 8.0 - PI as f32 / 2.0).sin());
         d.draw_text(modes[i], pos.x as i32, pos.y as i32, 12, Color::BLACK);
     }
 }

@@ -20,7 +20,16 @@ pub fn chord_type_dict() -> &'static HashMap<&'static str, Vec<u8>> {
             ("sus4",    vec![0, 5, 7]),
             ("maj6",    vec![0, 4, 7, 9]),
             ("sus2",    vec![0, 2, 7]),
-            ("aug",     vec![1, 4, 8]),
+            ("aug",     vec![0, 4, 8]),
+
+            ("5",       vec![0, 7]),
+            ("min6",    vec![0, 3, 7, 9]),
+            ("7sus4",   vec![0, 5, 7, 10]),
+            ("min9",    vec![0, 3, 7, 10, 14]),
+            ("maj9",    vec![0, 4, 7, 11, 14]),
+            ("dom9",    vec![0, 4, 7, 10, 14]),
+            ("dim7",    vec![0, 3, 6, 9]),
+
         ])
     })
 }
@@ -29,15 +38,26 @@ pub fn chord_mode_dict() -> &'static HashMap<i32, Vec<&'static str>> {
     static DICT: std::sync::OnceLock<HashMap<i32, Vec<&'static str>>> = std::sync::OnceLock::new();
     DICT.get_or_init(|| {
         HashMap::from([
-            (-1, vec!["maj",     "min",     "min",     "maj",     "maj",     "min",     "dim"    ]),
-            ( 6, vec!["min",     "maj",     "maj",     "min",     "min",     "maj",     "min"    ]),
-            ( 7, vec!["dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7"   ]),
-            ( 0, vec!["min7",    "maj7",    "maj7",    "min7",    "min7",    "maj7",    "min7b5" ]),
-            ( 1, vec!["majadd9", "minadd9", "minadd9", "majadd9", "majadd9", "minadd9", "dimadd9"]),
-            ( 2, vec!["sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4"   ]),
-            ( 3, vec!["maj6",    "sus2",    "sus2",    "maj6",    "maj6",    "sus2",    "sus2"   ]),
-            ( 4, vec!["dim",     "dim",     "dim",     "dim",     "dim",     "dim",     "dim"    ]),
-            ( 5, vec!["aug",     "aug",     "aug",     "aug",     "aug",     "aug",     "aug"    ]),
+            (-1, vec!["maj",     "min",     "min",     "maj",     "maj",     "min",     "min"    ]),
+            ( 6, vec!["maj7",    "min7",    "min7",    "maj7",    "maj7",    "min7",    "min7"   ]),
+            ( 7, vec!["majadd9", "minadd9", "minadd9", "majadd9", "majadd9", "minadd9", "minadd9"]),
+            ( 0, vec!["maj9",    "min9",    "min9",    "maj9",    "maj9",    "min9",    "min9"   ]),
+            ( 1, vec!["dim",     "dim",     "dim",     "dim",     "dim",     "dim",     "dim"    ]),
+            ( 2, vec!["aug",     "aug",     "aug",     "aug",     "aug",     "aug",     "aug"    ]),
+            ( 3, vec!["sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4",    "sus4"   ]),
+            ( 4, vec!["5",       "5",       "5",       "5",       "5",       "5",       "5"      ]),
+            ( 5, vec!["maj6",    "min6",    "min6",    "maj6",    "maj6",    "min6",    "min6"   ]),
+
+            ( 8, vec!["min",     "maj",     "maj",     "min",     "min",     "maj",     "maj"    ]),
+            (15, vec!["min7",    "maj7",    "maj7",    "min7",    "min7",    "maj7",    "min7"   ]),
+            (16, vec!["minadd9", "majadd9", "majadd9", "minadd9", "minadd9", "majadd9", "minadd9"]),
+            ( 9, vec!["min7",    "maj7",    "maj7",    "min7",    "min7",    "maj7",    "maj7"   ]),
+            (10, vec!["dim7",    "dim7",    "dim7",    "dim7",    "dim7",    "dim7",    "dim7"   ]),
+            (11, vec!["dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7",    "dom7"   ]),
+            (12, vec!["7sus4",   "7sus4",   "7sus4",   "7sus4",   "7sus4",   "sus4",   "7sus4"   ]),
+            (13, vec!["sus2",    "sus2",    "sus2",    "sus2",    "sus2",    "sus2",    "sus2"   ]),
+            (14, vec!["min6",    "maj6",    "maj6",    "min6",    "min6",    "maj6",    "maj6"   ]),
+
         ])
     })
 }
