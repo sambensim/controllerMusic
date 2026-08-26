@@ -14,6 +14,17 @@ I initially wrote a prototype in ToneJs, but decided I wanted more control over 
 
 ## Architecture
 
+The general 'boxes' / abstractions:
+
+- display engine handles all visual output
+- sound engine handles all sound output
+  - instruments define how effects, adsrs, oscillators, and inputs should be assembled into a voices and a controlling voicebank
+  - voicebanks take and distribute input note events and output raw sound data (effects are applied on this level)
+    - voices handle a single oscillator and adsr
+    - effects, adsrs, and oscillators are paramaterized, meaning they can be modified by input events
+- input engine handles all input
+- chord engine handles definitions of all music theory related constants and functions
+
 ```mermaid
 flowchart TD
     A[main]
