@@ -14,7 +14,57 @@ I initially wrote a prototype in ToneJs, but decided I wanted more control over 
 
 ## Architecture
 
-> This section was written by Claude
+```mermaid
+flowchart TD
+    A[main]
+    B[sound engine]
+    C[input engine]
+    D[display engine]
+
+    E[controller]
+    F[dualshock]
+    G[intermediate controller state]
+
+    H[voice manager]
+    I[voice bank]
+    J[voice]
+    K[oscillator]
+    L[effect]
+    M[instrument]
+    N[adsr]
+    O[parameterized]
+    P[chord engine]
+
+    A -->|starts| B
+    A -->|starts| C
+    A -->|starts| D
+    B -->|subscribes| C
+    D -->|subscribes| C
+
+    B -->|queries| P
+    D -->|queries| P
+
+    F -->|implements| E
+    G -->|interprets| E
+    C --> |broadcasts| G
+
+    L -->|implements| O
+    K -->|implements| O
+    N -->|implements| O
+
+    H -->|distributes| I
+    I -->|handles| J
+
+    B -->|input|M
+    M -->|input|I
+    I -->|output|B
+
+    J -->|handles| L
+    J -->|handles| K
+    J -->|handles| N
+```
+
+> This rest section was written by Claude
 
 Controller input flows through a pipeline of modules:
 
