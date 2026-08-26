@@ -6,7 +6,7 @@ Rust app that allows control over a realtime synth/audio engine with a PlayStati
 
 There's a number of synths I've thought are really cool for a while but couldn't justify the price of, particularly:
 
-- **The HiChord** – a tiny box with only 7 keys (as in Western music theory each key has 7 unique notes and 7 corresponding chords) and a joystick. Each key plays a chord ( and the joystick modifies the chord being played (for example by flipping what would be a minor chord to a major or visa versa). This was the primary inspiration behind using a controller – the main special thing about the HiChord is that it has a joystick, well mine has two!
+- **The HiChord** – a tiny box with only 7 keys (as in Western music theory each key has 7 unique notes and 7 corresponding chords) and a joystick. Each key plays a chord and the joystick modifies the chord being played (for example by flipping what would be a minor chord to a major or visa versa). This was the primary inspiration behind using a controller – the main special thing about the HiChord is that it has a joystick, well mine has two!
 - **The OmniChord** – a ~laptop sized hunk of plastic resembling an autoharp with 38 keys and a little touch-sensitive single-axis pad. Pressing a button drones the root note of that chord and sliding across the pad strums notes contained in that chord (across multiple octaves)
 - **The OP-1** – a computer-keyboard-sized box resembling a normal MIDI keyboard but with lots of extra knobs and buttons and a tiny screen in the top left corner. The OP-1 has lots of fun little features, but that screen is what really makes it fun, the visuals and UI are responsive, colorful, and always playful
 
